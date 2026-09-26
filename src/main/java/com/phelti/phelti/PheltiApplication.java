@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class PheltiApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(PheltiApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(PheltiApplication.class, args);
+    }
 }
