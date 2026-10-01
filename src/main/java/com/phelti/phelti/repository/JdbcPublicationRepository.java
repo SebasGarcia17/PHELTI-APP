@@ -42,10 +42,30 @@ public class JdbcPublicationRepository implements PublicationRepository {
         return jdbcTemplate.query(sql, this::mapPublication);
     }
 
-    @Override
-    public Optional<Publication> findPublicationById(Integer publicationId) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+   @Override
+public Optional<Publication> findPublicationById(Integer publicationId) {
+
+    String sql = """
+            SELECT
+                id_publicacion,
+                id_usuario,
+                id_categoria,
+                tipo,
+                titulo,
+                descripcion,
+                modalidad,
+                valor_tiempo,
+                negociable,
+                estado
+            FROM publicacion
+            WHERE id_publicacion = ?
+            """;
+
+    List<Publication> publications =
+            jdbcTemplate.query(sql, this::mapPublication, publicationId);
+
+    return publications.stream().findFirst();
+}
 
     @Override
     public Publication createPublication(Publication publication) {
