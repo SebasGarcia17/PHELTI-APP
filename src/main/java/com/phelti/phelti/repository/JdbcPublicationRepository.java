@@ -106,9 +106,41 @@ public Publication createPublication(Publication publication) {
 }
 
     @Override
-    public Publication updatePublication(Integer publicationId, Publication publication) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+public Publication updatePublication(Integer publicationId, Publication publication) {
+
+    String sql = """
+            UPDATE publicacion
+            SET
+                id_usuario = ?,
+                id_categoria = ?,
+                tipo = ?,
+                titulo = ?,
+                descripcion = ?,
+                modalidad = ?,
+                valor_tiempo = ?,
+                negociable = ?,
+                estado = ?
+            WHERE id_publicacion = ?
+            """;
+
+    jdbcTemplate.update(
+            sql,
+            publication.getUserId(),
+            publication.getCategoryId(),
+            publication.getPublicationType(),
+            publication.getTitle(),
+            publication.getDescription(),
+            publication.getInteractionMode(),
+            publication.getPheltAmount(),
+            publication.isNegotiable(),
+            publication.getPublicationStatus(),
+            publicationId
+    );
+
+    publication.setPublicationId(publicationId);
+
+    return publication;
+}
 
     @Override
     public void deletePublication(Integer publicationId) {
