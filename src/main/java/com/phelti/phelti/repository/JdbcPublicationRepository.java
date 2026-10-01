@@ -68,9 +68,42 @@ public Optional<Publication> findPublicationById(Integer publicationId) {
 }
 
     @Override
-    public Publication createPublication(Publication publication) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+public Publication createPublication(Publication publication) {
+
+    String sql = """
+            INSERT INTO publicacion (
+                id_usuario,
+                id_categoria,
+                tipo,
+                titulo,
+                descripcion,
+                modalidad,
+                valor_tiempo,
+                negociable,
+                estado
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id_publicacion
+            """;
+
+    Integer generatedId = jdbcTemplate.queryForObject(
+            sql,
+            Integer.class,
+            publication.getUserId(),
+            publication.getCategoryId(),
+            publication.getPublicationType(),
+            publication.getTitle(),
+            publication.getDescription(),
+            publication.getInteractionMode(),
+            publication.getPheltAmount(),
+            publication.isNegotiable(),
+            publication.getPublicationStatus()
+    );
+
+    publication.setPublicationId(generatedId);
+
+    return publication;
+}
 
     @Override
     public Publication updatePublication(Integer publicationId, Publication publication) {
