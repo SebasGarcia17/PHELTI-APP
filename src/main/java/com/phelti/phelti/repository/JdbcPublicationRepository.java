@@ -143,9 +143,15 @@ public Publication updatePublication(Integer publicationId, Publication publicat
 }
 
     @Override
-    public void deletePublication(Integer publicationId) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+public void deletePublication(Integer publicationId) {
+
+    String sql = """
+            DELETE FROM publicacion
+            WHERE id_publicacion = ?
+            """;
+
+    jdbcTemplate.update(sql, publicationId);
+}
 
     private Publication mapPublication(ResultSet resultSet, int rowNumber) throws SQLException {
 
