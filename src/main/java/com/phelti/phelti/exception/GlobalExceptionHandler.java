@@ -23,6 +23,18 @@ public class GlobalExceptionHandler {
                 .body(buildBody(ex.getMessage(), HttpStatus.BAD_REQUEST));
     }
 
+    @ExceptionHandler(ProposalNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(ProposalNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildBody(ex.getMessage(), HttpStatus.NOT_FOUND));
+    }
+
+    @ExceptionHandler(InvalidProposalDataException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidData(InvalidProposalDataException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(buildBody(ex.getMessage(), HttpStatus.BAD_REQUEST));
+    }
+
     private Map<String, Object> buildBody(String message, HttpStatus status) {
         return Map.of(
                 "timestamp", Instant.now().toString(),

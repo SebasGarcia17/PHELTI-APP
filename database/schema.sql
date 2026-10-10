@@ -33,3 +33,22 @@ CREATE TABLE publicacion (
         FOREIGN KEY (id_categoria)
         REFERENCES categoria(id_categoria)
 );
+
+CREATE TABLE propuesta (
+    id_propuesta INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    id_publicacion INTEGER NOT NULL,
+    id_usuario_proponente INTEGER NOT NULL,
+
+    mensaje TEXT,
+    estado VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT now(),
+
+    CONSTRAINT fk_propuesta_publicacion
+        FOREIGN KEY (id_publicacion)
+        REFERENCES publicacion(id_publicacion),
+
+    CONSTRAINT fk_propuesta_usuario
+        FOREIGN KEY (id_usuario_proponente)
+        REFERENCES usuario(id_usuario)
+);
