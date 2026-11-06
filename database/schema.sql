@@ -51,4 +51,15 @@ CREATE TABLE propuesta (
     CONSTRAINT fk_propuesta_usuario
         FOREIGN KEY (id_usuario_proponente)
         REFERENCES usuario(id_usuario)
+
+        CREATE TABLE billetera (
+    id_billetera INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_usuario INTEGER NOT NULL UNIQUE,
+    saldo_disponible NUMERIC(10,2) NOT NULL DEFAULT 0,
+    saldo_reservado NUMERIC(10,2) NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_billetera_usuario
+        FOREIGN KEY (id_usuario)
+        REFERENCES usuario(id_usuario)
+);
 );
