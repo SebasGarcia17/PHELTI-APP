@@ -51,6 +51,7 @@ CREATE TABLE propuesta (
     CONSTRAINT fk_propuesta_usuario
         FOREIGN KEY (id_usuario_proponente)
         REFERENCES usuario(id_usuario)
+);
 
         CREATE TABLE billetera (
     id_billetera INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -60,6 +61,43 @@ CREATE TABLE propuesta (
 
     CONSTRAINT fk_billetera_usuario
         FOREIGN KEY (id_usuario)
+        REFERENCES usuario(id_usuario)
+
+);
+CREATE TABLE actividad (
+    id_actividad INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    id_publicacion INTEGER NOT NULL,
+    id_propuesta INTEGER NOT NULL,
+    id_solicitante INTEGER NOT NULL,
+    id_participante INTEGER NOT NULL,
+
+    modalidad VARCHAR(20) NOT NULL,
+    fecha DATE NOT NULL,
+    hora TIME NOT NULL,
+    duracion INTEGER NOT NULL,
+
+    lugar VARCHAR(200),
+    enlace_virtual VARCHAR(300),
+
+    valor_acordado NUMERIC(10,2) NOT NULL,
+    codigo_checkin VARCHAR(100),
+    estado VARCHAR(30) NOT NULL,
+
+    CONSTRAINT fk_actividad_publicacion
+        FOREIGN KEY (id_publicacion)
+        REFERENCES publicacion(id_publicacion),
+
+    CONSTRAINT fk_actividad_propuesta
+        FOREIGN KEY (id_propuesta)
+        REFERENCES propuesta(id_propuesta),
+
+    CONSTRAINT fk_actividad_solicitante
+        FOREIGN KEY (id_solicitante)
+        REFERENCES usuario(id_usuario),
+
+    CONSTRAINT fk_actividad_participante
+        FOREIGN KEY (id_participante)
         REFERENCES usuario(id_usuario)
 );
 );
