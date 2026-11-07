@@ -5,10 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "usuario")
@@ -33,6 +36,12 @@ public class UserEntity {
 
     @OneToOne(mappedBy = "user")
     private WalletEntity wallet;
+
+    @OneToMany(mappedBy = "requester")
+    private List<ActivityEntity> requestedActivities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "participant")
+    private List<ActivityEntity> participatingActivities = new ArrayList<>();
 
     public UserEntity() {
     }
@@ -83,5 +92,21 @@ public class UserEntity {
 
     public void setWallet(WalletEntity wallet) {
         this.wallet = wallet;
+    }
+
+    public List<ActivityEntity> getRequestedActivities() {
+        return requestedActivities;
+    }
+
+    public void setRequestedActivities(List<ActivityEntity> requestedActivities) {
+        this.requestedActivities = requestedActivities;
+    }
+
+    public List<ActivityEntity> getParticipatingActivities() {
+        return participatingActivities;
+    }
+
+    public void setParticipatingActivities(List<ActivityEntity> participatingActivities) {
+        this.participatingActivities = participatingActivities;
     }
 }
