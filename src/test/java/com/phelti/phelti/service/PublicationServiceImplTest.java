@@ -297,6 +297,87 @@ class PublicationServiceImplTest {
     }
 
     @Test
+    void changePublicationStatusShouldThrowExceptionWhenStatusIsInvalid() {
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.changePublicationStatus(1, "UNKNOWN")
+        );
+
+        verify(publicationRepository, never())
+                .updatePublication(any(), any());
+    }
+
+    @Test
+    void changePublicationStatusShouldThrowExceptionWhenPublicationDoesNotExist() {
+
+        when(publicationRepository.findPublicationById(999))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                PublicationNotFoundException.class,
+                () -> publicationService.changePublicationStatus(
+                        999,
+                        PublicationStatus.COMPLETED.name()
+                )
+        );
+    }
+
+    @Test
+    void updatePublicationShouldThrowExceptionWhenPublicationDoesNotExist() {
+
+        when(publicationRepository.findPublicationById(999))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                PublicationNotFoundException.class,
+                () -> publicationService.updatePublication(
+                        999,
+                        createValidPublication()
+                )
+        );
+
+        verify(publicationRepository, never())
+                .updatePublication(any(), any());
+    }
+
+    @Test
+    void updatePublicationShouldThrowExceptionWhenDataIsInvalid() {
+
+        Publication existing = createValidPublication();
+        existing.setPublicationId(1);
+
+        Publication invalid = createValidPublication();
+        invalid.setTitle(" ");
+
+        when(publicationRepository.findPublicationById(1))
+                .thenReturn(Optional.of(existing));
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.updatePublication(1, invalid)
+        );
+
+        verify(publicationRepository, never())
+                .updatePublication(any(), any());
+    }
+
+    @Test
+    void createPublicationShouldThrowExceptionWhenStatusIsInvalid() {
+
+        Publication publication = createValidPublication();
+        publication.setPublicationStatus("UNKNOWN");
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.createPublication(publication)
+        );
+
+        verify(publicationRepository, never())
+                .createPublication(any(Publication.class));
+    }
+
+    @Test
     void deletePublicationShouldDeletePublicationWhenItExists() {
 
         Integer publicationId = 1;

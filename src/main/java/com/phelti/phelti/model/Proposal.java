@@ -3,7 +3,6 @@ package com.phelti.phelti.model;
 import java.time.Instant;
 
 public class Proposal {
-
     private Integer proposalId;
     private Integer publicationId;
     private Integer proposingUserId;

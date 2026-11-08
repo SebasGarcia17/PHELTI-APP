@@ -10,7 +10,9 @@ import com.phelti.phelti.repository.PublicationRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PublicationServiceImpl implements PublicationService {
@@ -53,6 +55,7 @@ public class PublicationServiceImpl implements PublicationService {
 
     @Override
     public Publication changePublicationStatus(Integer publicationId, String status) {
+        validateStatus(status);
         Publication existing = findPublicationById(publicationId);
         existing.setPublicationStatus(status);
         return publicationRepository.updatePublication(publicationId, existing);
@@ -91,6 +94,15 @@ public class PublicationServiceImpl implements PublicationService {
             throw new InvalidPublicationDataException(
                     "interactionMode must be one of: " + allowedValues(InteractionMode.class));
         }
+
+        validateStatus(publication.getPublicationStatus());
+    }
+
+    private void validateStatus(String status) {
+        if (!isValidEnumValue(PublicationStatus.class, status)) {
+            throw new InvalidPublicationDataException(
+                    "publicationStatus must be one of: " + allowedValues(PublicationStatus.class));
+        }
     }
 
     private boolean isBlank(String value) {
@@ -98,26 +110,13 @@ public class PublicationServiceImpl implements PublicationService {
     }
 
     private <E extends Enum<E>> boolean isValidEnumValue(Class<E> enumClass, String value) {
-        if (value == null) {
-            return false;
-        }
-        for (E constant : enumClass.getEnumConstants()) {
-            if (constant.name().equals(value)) {
-                return true;
-            }
-        }
-        return false;
+        return value != null && Arrays.stream(enumClass.getEnumConstants())
+                .anyMatch(constant -> constant.name().equals(value));
     }
 
     private <E extends Enum<E>> String allowedValues(Class<E> enumClass) {
-        StringBuilder sb = new StringBuilder();
-        E[] constants = enumClass.getEnumConstants();
-        for (int i = 0; i < constants.length; i++) {
-            sb.append(constants[i].name());
-            if (i < constants.length - 1) {
-                sb.append(", ");
-            }
-        }
-        return sb.toString();
+        return Arrays.stream(enumClass.getEnumConstants())
+                .map(Enum::name)
+                .collect(Collectors.joining(", "));
     }
 }
