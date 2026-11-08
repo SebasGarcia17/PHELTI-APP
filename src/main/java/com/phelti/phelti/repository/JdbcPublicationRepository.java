@@ -2,7 +2,6 @@ package com.phelti.phelti.repository;
 
 import com.phelti.phelti.model.Publication;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -12,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-@Primary
 public class JdbcPublicationRepository implements PublicationRepository {
 
     private final JdbcTemplate jdbcTemplate;
