@@ -3,18 +3,14 @@ package com.phelti.phelti.model;
 import java.math.BigDecimal;
 
 public class Publication {
-
     private Integer publicationId;
     private Integer userId;
     private Integer categoryId;
-
     private String publicationType;
     private String title;
     private String description;
     private String interactionMode;
-
     private BigDecimal pheltAmount;
-
     private boolean negotiable;
     private String publicationStatus;
 

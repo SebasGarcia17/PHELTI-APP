@@ -30,6 +30,8 @@ public class ProposalServiceImpl implements ProposalService {
     @Override
     public Proposal createProposal(Proposal proposal) {
 
+        validateProposal(proposal);
+
         Publication publication =
                 publicationService.findPublicationById(
                         proposal.getPublicationId()
@@ -43,7 +45,11 @@ public class ProposalServiceImpl implements ProposalService {
             );
         }
 
-        validateProposal(proposal);
+        if (proposal.getProposingUserId().equals(publication.getUserId())) {
+            throw new InvalidProposalDataException(
+                    "a user cannot propose on their own publication"
+            );
+        }
 
         proposal.setProposalStatus(
                 ProposalStatus.PENDING.name()
@@ -101,6 +107,7 @@ public class ProposalServiceImpl implements ProposalService {
     }
 
     @Override
+    @Transactional
     public Proposal rejectProposal(Integer proposalId) {
 
         Proposal proposal = findProposalById(proposalId);
@@ -126,6 +133,33 @@ public class ProposalServiceImpl implements ProposalService {
     }
 
     @Override
+    @Transactional
+    public Proposal cancelAcceptedProposal(Integer proposalId) {
+
+        Proposal proposal = findProposalById(proposalId);
+
+        if (!ProposalStatus.ACCEPTED.name()
+                .equals(proposal.getProposalStatus())) {
+
+            throw new InvalidProposalDataException(
+                    "only accepted proposals can be cancelled"
+            );
+        }
+
+        proposalRepository.updateProposalStatus(
+                proposalId,
+                ProposalStatus.CANCELLED.name()
+        );
+
+        proposal.setProposalStatus(
+                ProposalStatus.CANCELLED.name()
+        );
+
+        return proposal;
+    }
+
+    @Override
+    @Transactional
     public void deleteProposal(Integer proposalId) {
 
         findProposalById(proposalId);

@@ -16,5 +16,7 @@ public interface ProposalService {
 
     Proposal rejectProposal(Integer proposalId);
 
+    Proposal cancelAcceptedProposal(Integer proposalId);
+
     void deleteProposal(Integer proposalId);
 }

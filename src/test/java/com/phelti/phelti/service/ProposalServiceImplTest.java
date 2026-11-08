@@ -2,6 +2,7 @@ package com.phelti.phelti.service;
 
 import com.phelti.phelti.exception.InvalidProposalDataException;
 import com.phelti.phelti.exception.ProposalNotFoundException;
+import com.phelti.phelti.exception.PublicationNotFoundException;
 import com.phelti.phelti.model.Proposal;
 import com.phelti.phelti.model.ProposalStatus;
 import com.phelti.phelti.model.Publication;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,18 +93,15 @@ class ProposalServiceImplTest {
         Proposal proposal = createValidProposal();
         proposal.setPublicationId(null);
 
-        Publication publication = new Publication();
-        publication.setPublicationStatus(
-                PublicationStatus.PUBLISHED.name()
-        );
-
-        when(publicationService.findPublicationById(null))
-                .thenReturn(publication);
-
         assertThrows(
                 InvalidProposalDataException.class,
                 () -> proposalService.createProposal(proposal)
         );
+
+        verify(publicationService, never())
+                .findPublicationById(any());
+        verify(proposalRepository, never())
+                .createProposal(any(Proposal.class));
     }
 
     @Test
@@ -111,18 +110,15 @@ class ProposalServiceImplTest {
         Proposal proposal = createValidProposal();
         proposal.setProposingUserId(null);
 
-        Publication publication = new Publication();
-        publication.setPublicationStatus(
-                PublicationStatus.PUBLISHED.name()
-        );
-
-        when(publicationService.findPublicationById(1))
-                .thenReturn(publication);
-
         assertThrows(
                 InvalidProposalDataException.class,
                 () -> proposalService.createProposal(proposal)
         );
+
+        verify(publicationService, never())
+                .findPublicationById(any());
+        verify(proposalRepository, never())
+                .createProposal(any(Proposal.class));
     }
 
     @Test
@@ -131,18 +127,15 @@ class ProposalServiceImplTest {
         Proposal proposal = createValidProposal();
         proposal.setMessage("a".repeat(501));
 
-        Publication publication = new Publication();
-        publication.setPublicationStatus(
-                PublicationStatus.PUBLISHED.name()
-        );
-
-        when(publicationService.findPublicationById(1))
-                .thenReturn(publication);
-
         assertThrows(
                 InvalidProposalDataException.class,
                 () -> proposalService.createProposal(proposal)
         );
+
+        verify(publicationService, never())
+                .findPublicationById(any());
+        verify(proposalRepository, never())
+                .createProposal(any(Proposal.class));
     }
 
     @Test
@@ -266,6 +259,66 @@ class ProposalServiceImplTest {
     }
 
     @Test
+    void cancelAcceptedProposalShouldCancelAcceptedProposal() {
+
+        Proposal proposal = createValidProposal();
+        proposal.setProposalId(1);
+        proposal.setProposalStatus(
+                ProposalStatus.ACCEPTED.name()
+        );
+
+        when(proposalRepository.findProposalById(1))
+                .thenReturn(Optional.of(proposal));
+
+        Proposal result =
+                proposalService.cancelAcceptedProposal(1);
+
+        assertEquals(
+                ProposalStatus.CANCELLED.name(),
+                result.getProposalStatus()
+        );
+
+        verify(proposalRepository)
+                .updateProposalStatus(
+                        1,
+                        ProposalStatus.CANCELLED.name()
+                );
+    }
+
+    @Test
+    void cancelAcceptedProposalShouldThrowExceptionWhenProposalIsNotAccepted() {
+
+        Proposal proposal = createValidProposal();
+        proposal.setProposalId(1);
+        proposal.setProposalStatus(
+                ProposalStatus.PENDING.name()
+        );
+
+        when(proposalRepository.findProposalById(1))
+                .thenReturn(Optional.of(proposal));
+
+        assertThrows(
+                InvalidProposalDataException.class,
+                () -> proposalService.cancelAcceptedProposal(1)
+        );
+
+        verify(proposalRepository, never())
+                .updateProposalStatus(any(), any());
+    }
+
+    @Test
+    void cancelAcceptedProposalShouldThrowExceptionWhenProposalDoesNotExist() {
+
+        when(proposalRepository.findProposalById(999))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ProposalNotFoundException.class,
+                () -> proposalService.cancelAcceptedProposal(999)
+        );
+    }
+
+    @Test
     void rejectProposalShouldRejectPendingProposal() {
 
         Proposal proposal = createValidProposal();
@@ -338,6 +391,46 @@ class ProposalServiceImplTest {
 
         verify(proposalRepository, never())
                 .deleteProposal(999);
+    }
+
+    @Test
+    void createProposalShouldThrowExceptionWhenProposerOwnsThePublication() {
+
+        Proposal proposal = createValidProposal();
+
+        Publication publication = new Publication();
+        publication.setUserId(proposal.getProposingUserId());
+        publication.setPublicationStatus(
+                PublicationStatus.PUBLISHED.name()
+        );
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        assertThrows(
+                InvalidProposalDataException.class,
+                () -> proposalService.createProposal(proposal)
+        );
+
+        verify(proposalRepository, never())
+                .createProposal(any(Proposal.class));
+    }
+
+    @Test
+    void createProposalShouldThrowExceptionWhenPublicationDoesNotExist() {
+
+        Proposal proposal = createValidProposal();
+
+        when(publicationService.findPublicationById(1))
+                .thenThrow(new PublicationNotFoundException(1));
+
+        assertThrows(
+                PublicationNotFoundException.class,
+                () -> proposalService.createProposal(proposal)
+        );
+
+        verify(proposalRepository, never())
+                .createProposal(any(Proposal.class));
     }
 
     private Proposal createValidProposal() {
