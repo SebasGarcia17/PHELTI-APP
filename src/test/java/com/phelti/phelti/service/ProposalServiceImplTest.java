@@ -1,6 +1,7 @@
 package com.phelti.phelti.service;
 
 import com.phelti.phelti.exception.InvalidProposalDataException;
+import com.phelti.phelti.exception.ProposalAlreadyExistsException;
 import com.phelti.phelti.exception.ProposalNotFoundException;
 import com.phelti.phelti.exception.PublicationNotFoundException;
 import com.phelti.phelti.model.Proposal;
@@ -16,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -431,6 +433,122 @@ class ProposalServiceImplTest {
 
         verify(proposalRepository, never())
                 .createProposal(any(Proposal.class));
+    }
+
+    @Test
+    void createProposalShouldAcceptProposedAmountWhenPublicationIsNegotiable() {
+
+        Proposal proposal = createValidProposal();
+        proposal.setProposedAmount(new BigDecimal("15.00"));
+
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+        publication.setNegotiable(true);
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        when(proposalRepository.createProposal(proposal))
+                .thenReturn(proposal);
+
+        Proposal result = proposalService.createProposal(proposal);
+
+        assertEquals(0, new BigDecimal("15.00").compareTo(result.getProposedAmount()));
+        verify(proposalRepository).createProposal(proposal);
+    }
+
+    @Test
+    void createProposalShouldThrowExceptionWhenPublicationIsNotNegotiableAndAmountIsProposed() {
+
+        Proposal proposal = createValidProposal();
+        proposal.setProposedAmount(new BigDecimal("15.00"));
+
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+        publication.setNegotiable(false);
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        assertThrows(
+                InvalidProposalDataException.class,
+                () -> proposalService.createProposal(proposal)
+        );
+
+        verify(proposalRepository, never()).createProposal(any(Proposal.class));
+    }
+
+    @Test
+    void createProposalShouldThrowExceptionWhenProposedAmountIsNotPositive() {
+
+        Proposal proposal = createValidProposal();
+        proposal.setProposedAmount(BigDecimal.ZERO);
+
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+        publication.setNegotiable(true);
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        assertThrows(
+                InvalidProposalDataException.class,
+                () -> proposalService.createProposal(proposal)
+        );
+
+        verify(proposalRepository, never()).createProposal(any(Proposal.class));
+    }
+
+    @Test
+    void createProposalShouldThrowExceptionWhenUserAlreadyHasActiveProposal() {
+
+        Proposal proposal = createValidProposal();
+
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+
+        Proposal existing = createValidProposal();
+        existing.setProposalId(5);
+        existing.setProposalStatus(ProposalStatus.PENDING.name());
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        when(proposalRepository.findProposalsByPublicationId(1))
+                .thenReturn(List.of(existing));
+
+        assertThrows(
+                ProposalAlreadyExistsException.class,
+                () -> proposalService.createProposal(proposal)
+        );
+
+        verify(proposalRepository, never()).createProposal(any());
+    }
+
+    @Test
+    void createProposalShouldAllowNewProposalWhenPreviousOneWasRejected() {
+
+        Proposal proposal = createValidProposal();
+
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+
+        Proposal rejected = createValidProposal();
+        rejected.setProposalId(5);
+        rejected.setProposalStatus(ProposalStatus.REJECTED.name());
+
+        when(publicationService.findPublicationById(1))
+                .thenReturn(publication);
+
+        when(proposalRepository.findProposalsByPublicationId(1))
+                .thenReturn(List.of(rejected));
+
+        when(proposalRepository.createProposal(proposal))
+                .thenReturn(proposal);
+
+        Proposal result = proposalService.createProposal(proposal);
+
+        assertEquals(ProposalStatus.PENDING.name(), result.getProposalStatus());
     }
 
     private Proposal createValidProposal() {

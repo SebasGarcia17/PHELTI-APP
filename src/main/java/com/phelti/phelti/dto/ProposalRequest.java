@@ -2,7 +2,10 @@ package com.phelti.phelti.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
 
 @Schema(description = "Data required to make a proposal on a publication")
 public record ProposalRequest(
@@ -14,6 +17,9 @@ public record ProposalRequest(
         Integer proposingUserId,
         @Schema(description = "Optional message, max 500 characters", example = "I can help on Saturday")
         @Size(max = 500)
-        String message
+        String message,
+        @Schema(description = "Optional amount of phelts proposed, only allowed when the publication is negotiable", example = "15.00")
+        @Positive
+        BigDecimal proposedAmount
 ) {
 }

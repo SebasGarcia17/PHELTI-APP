@@ -4,6 +4,7 @@ import com.phelti.phelti.exception.InvalidPublicationDataException;
 import com.phelti.phelti.exception.PublicationNotFoundException;
 import com.phelti.phelti.model.InteractionMode;
 import com.phelti.phelti.model.Publication;
+import com.phelti.phelti.model.PublicationFilter;
 import com.phelti.phelti.model.PublicationStatus;
 import com.phelti.phelti.model.PublicationType;
 import com.phelti.phelti.repository.PublicationRepository;
@@ -41,6 +42,45 @@ public class PublicationServiceImpl implements PublicationService {
     @Override
     public List<Publication> findAllPublications() {
         return publicationRepository.findAllPublications();
+    }
+
+    @Override
+    public List<Publication> searchPublications(PublicationFilter filter) {
+        String type = normalizeFilter(filter.publicationType());
+        String mode = normalizeFilter(filter.interactionMode());
+        String status = normalizeFilter(filter.publicationStatus());
+        String keyword = isBlank(filter.keyword()) ? null : filter.keyword().trim();
+
+        if (type != null && !isValidEnumValue(PublicationType.class, type)) {
+            throw new InvalidPublicationDataException(
+                    "publicationType must be one of: " + allowedValues(PublicationType.class));
+        }
+
+        if (mode != null && !isValidEnumValue(InteractionMode.class, mode)) {
+            throw new InvalidPublicationDataException(
+                    "interactionMode must be one of: " + allowedValues(InteractionMode.class));
+        }
+
+        if (status == null) {
+            status = PublicationStatus.PUBLISHED.name();
+        }
+        validateStatus(status);
+
+        if (filter.maxPheltAmount() != null
+                && filter.maxPheltAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidPublicationDataException("maxPheltAmount must be greater than zero");
+        }
+
+        PublicationFilter normalized = new PublicationFilter(
+                type,
+                mode,
+                filter.categoryId(),
+                keyword,
+                filter.maxPheltAmount(),
+                status
+        );
+
+        return publicationRepository.searchPublications(normalized);
     }
 
     @Override
@@ -95,6 +135,10 @@ public class PublicationServiceImpl implements PublicationService {
                     "interactionMode must be one of: " + allowedValues(InteractionMode.class));
         }
 
+        if (publication.getDurationMinutes() != null
+                && publication.getDurationMinutes() <= 0) {
+            throw new InvalidPublicationDataException("durationMinutes must be greater than zero");
+        }
         validateStatus(publication.getPublicationStatus());
     }
 
@@ -103,6 +147,10 @@ public class PublicationServiceImpl implements PublicationService {
             throw new InvalidPublicationDataException(
                     "publicationStatus must be one of: " + allowedValues(PublicationStatus.class));
         }
+    }
+
+    private String normalizeFilter(String value) {
+        return isBlank(value) ? null : value.trim().toUpperCase();
     }
 
     private boolean isBlank(String value) {

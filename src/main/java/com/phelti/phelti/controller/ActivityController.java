@@ -2,9 +2,12 @@ package com.phelti.phelti.controller;
 
 import com.phelti.phelti.dto.ActivityRequest;
 import com.phelti.phelti.dto.ActivityResponse;
-import com.phelti.phelti.dto.CompleteActivityRequest;
+import com.phelti.phelti.dto.ConfirmationRequest;
+import com.phelti.phelti.dto.ConfirmationResponse;
 import com.phelti.phelti.entity.ActivityEntity;
+import com.phelti.phelti.entity.ConfirmationEntity;
 import com.phelti.phelti.service.ActivityService;
+import com.phelti.phelti.service.ConfirmationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,13 +28,18 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/activities")
-@Tag(name = "Activities", description = "Scheduling, completion and cancellation of time-exchange activities")
+@Tag(name = "Activities", description = "Scheduling, confirmation and cancellation of time-exchange activities")
 public class ActivityController {
 
     private final ActivityService activityService;
+    private final ConfirmationService confirmationService;
 
-    public ActivityController(ActivityService activityService) {
+    public ActivityController(
+            ActivityService activityService,
+            ConfirmationService confirmationService) {
+
         this.activityService = activityService;
+        this.confirmationService = confirmationService;
     }
 
     @Operation(
@@ -87,25 +95,47 @@ public class ActivityController {
     }
 
     @Operation(
-            summary = "Complete an activity",
-            description = "Validates the check-in code, transfers the reserved phelts to the participant and completes the publication"
+            summary = "Confirm that an activity took place",
+            description = "Each of the two users confirms with the check-in code. When both have confirmed, the reserved phelts are transferred to the participant, the publication is completed and the activity becomes COMPLETED"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Activity completed"),
-            @ApiResponse(responseCode = "400", description = "Check-in code does not match"),
+            @ApiResponse(responseCode = "200", description = "Confirmation registered, the activity is returned with its current status"),
+            @ApiResponse(responseCode = "400", description = "Check-in code does not match or the user is not part of the activity"),
             @ApiResponse(responseCode = "404", description = "Activity not found"),
-            @ApiResponse(responseCode = "409", description = "Only scheduled activities can be completed")
+            @ApiResponse(responseCode = "409", description = "Activity not scheduled or the user already confirmed")
     })
-    @PutMapping("/{id}/complete")
-    public ResponseEntity<ActivityResponse> completeActivity(
+    @PostMapping("/{id}/confirmations")
+    public ResponseEntity<ActivityResponse> confirmActivity(
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable("id") Integer activityId,
-            @Valid @RequestBody CompleteActivityRequest request) {
+            @Valid @RequestBody ConfirmationRequest request) {
 
-        ActivityEntity activity =
-                activityService.completeActivity(activityId, request.checkInCode());
+        ActivityEntity activity = confirmationService.confirmActivity(
+                activityId,
+                request.userId(),
+                request.checkInCode()
+        );
 
         return ResponseEntity.ok(toResponse(activity));
+    }
+
+    @Operation(summary = "List the confirmations of an activity")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Confirmations listed"),
+            @ApiResponse(responseCode = "404", description = "Activity not found")
+    })
+    @GetMapping("/{id}/confirmations")
+    public ResponseEntity<List<ConfirmationResponse>> findConfirmations(
+            @Parameter(description = "Activity identifier", example = "1")
+            @PathVariable("id") Integer activityId) {
+
+        List<ConfirmationResponse> confirmations = confirmationService
+                .findConfirmationsByActivityId(activityId)
+                .stream()
+                .map(this::toConfirmationResponse)
+                .toList();
+
+        return ResponseEntity.ok(confirmations);
     }
 
     @Operation(
@@ -123,6 +153,16 @@ public class ActivityController {
             @PathVariable("id") Integer activityId) {
 
         return ResponseEntity.ok(toResponse(activityService.cancelActivity(activityId)));
+    }
+
+    private ConfirmationResponse toConfirmationResponse(ConfirmationEntity confirmation) {
+
+        return new ConfirmationResponse(
+                confirmation.getConfirmationId(),
+                confirmation.getActivity().getActivityId(),
+                confirmation.getUser().getUserId(),
+                confirmation.getConfirmedAt()
+        );
     }
 
     private ActivityResponse toResponse(ActivityEntity activity) {

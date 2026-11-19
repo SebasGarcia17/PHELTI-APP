@@ -9,6 +9,7 @@ import com.phelti.phelti.exception.InvalidActivityDataException;
 import com.phelti.phelti.exception.InvalidActivityStateException;
 import com.phelti.phelti.exception.InvalidCheckInCodeException;
 import com.phelti.phelti.exception.UserNotFoundException;
+import com.phelti.phelti.exception.WalletNotFoundException;
 import com.phelti.phelti.model.ActivityStatus;
 import com.phelti.phelti.model.InteractionMode;
 import com.phelti.phelti.model.Proposal;
@@ -76,7 +77,7 @@ class ActivityServiceImplTest {
                 .thenReturn(Optional.of(createUser(1)));
 
         when(activityRepository.save(any(ActivityEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(savedActivityWithId());
 
         ActivityEntity result = activityService.createActivity(createValidRequest());
 
@@ -89,7 +90,40 @@ class ActivityServiceImplTest {
         assertEquals(InteractionMode.PRESENTIAL.name(), result.getInteractionMode());
         assertNotNull(result.getCheckInCode());
 
-        verify(walletService).reserveBalance(2, AMOUNT);
+        verify(walletService).reserveBalance(2, AMOUNT, 100);
+    }
+
+    @Test
+    void createActivityShouldUseProposedAmountWhenTheProposalIncludesOne() {
+
+        BigDecimal proposedAmount = new BigDecimal("15.00");
+
+        Proposal proposal = createAcceptedProposal();
+        proposal.setProposedAmount(proposedAmount);
+
+        when(proposalService.findProposalById(1))
+                .thenReturn(proposal);
+
+        when(activityRepository.existsByProposalId(1))
+                .thenReturn(false);
+
+        when(publicationService.findPublicationById(10))
+                .thenReturn(createPublication(PublicationType.OFFERS_SUPPORT, InteractionMode.PRESENTIAL));
+
+        when(userRepository.findById(2))
+                .thenReturn(Optional.of(createUser(2)));
+
+        when(userRepository.findById(1))
+                .thenReturn(Optional.of(createUser(1)));
+
+        when(activityRepository.save(any(ActivityEntity.class)))
+                .thenAnswer(savedActivityWithId());
+
+        ActivityEntity result = activityService.createActivity(createValidRequest());
+
+        assertEquals(proposedAmount, result.getAgreedAmount());
+
+        verify(walletService).reserveBalance(2, proposedAmount, 100);
     }
 
     @Test
@@ -104,14 +138,14 @@ class ActivityServiceImplTest {
                 .thenReturn(Optional.of(createUser(2)));
 
         when(activityRepository.save(any(ActivityEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(savedActivityWithId());
 
         ActivityEntity result = activityService.createActivity(createValidRequest());
 
         assertEquals(1, result.getRequester().getUserId());
         assertEquals(2, result.getParticipant().getUserId());
 
-        verify(walletService).reserveBalance(1, AMOUNT);
+        verify(walletService).reserveBalance(1, AMOUNT, 100);
     }
 
     @Test
@@ -126,7 +160,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(request)
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -141,7 +175,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(request)
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -171,7 +205,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(createValidRequest())
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -188,7 +222,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(createValidRequest())
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -205,7 +239,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(request)
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -222,7 +256,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(request)
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
     }
 
     @Test
@@ -238,7 +272,7 @@ class ActivityServiceImplTest {
                 () -> activityService.createActivity(createValidRequest())
         );
 
-        verify(walletService, never()).reserveBalance(any(), any());
+        verify(walletService, never()).reserveBalance(any(), any(), any());
         verify(activityRepository, never()).save(any(ActivityEntity.class));
     }
 
@@ -308,7 +342,7 @@ class ActivityServiceImplTest {
 
         assertEquals(ActivityStatus.COMPLETED.name(), result.getActivityStatus());
 
-        verify(walletService).transferReservedBalance(2, 1, AMOUNT);
+        verify(walletService).transferReservedBalance(2, 1, AMOUNT, 1);
         verify(publicationService)
                 .changePublicationStatus(10, PublicationStatus.COMPLETED.name());
     }
@@ -326,7 +360,7 @@ class ActivityServiceImplTest {
                 () -> activityService.completeActivity(1, "WRONG")
         );
 
-        verify(walletService, never()).transferReservedBalance(any(), any(), any());
+        verify(walletService, never()).transferReservedBalance(any(), any(), any(), any());
         verify(activityRepository, never()).save(any(ActivityEntity.class));
     }
 
@@ -344,7 +378,7 @@ class ActivityServiceImplTest {
                 () -> activityService.completeActivity(1, "CODE-123")
         );
 
-        verify(walletService, never()).transferReservedBalance(any(), any(), any());
+        verify(walletService, never()).transferReservedBalance(any(), any(), any(), any());
     }
 
     @Test
@@ -374,7 +408,7 @@ class ActivityServiceImplTest {
 
         assertEquals(ActivityStatus.CANCELLED.name(), result.getActivityStatus());
 
-        verify(walletService).releaseReservedBalance(2, AMOUNT);
+        verify(walletService).releaseReservedBalance(2, AMOUNT, 1);
         verify(proposalService).cancelAcceptedProposal(activity.getProposalId());
         verify(publicationService)
                 .changePublicationStatus(10, PublicationStatus.PUBLISHED.name());
@@ -394,8 +428,31 @@ class ActivityServiceImplTest {
                 () -> activityService.cancelActivity(1)
         );
 
-        verify(walletService, never()).releaseReservedBalance(any(), any());
+        verify(walletService, never()).releaseReservedBalance(any(), any(), any());
         verify(proposalService, never()).cancelAcceptedProposal(any());
+    }
+
+    @Test
+    void createActivityShouldThrowExceptionWhenParticipantHasNoWallet() {
+
+        stubSchedulableProposal(PublicationType.OFFERS_SUPPORT, InteractionMode.PRESENTIAL);
+
+        when(userRepository.findById(2))
+                .thenReturn(Optional.of(createUser(2)));
+
+        when(userRepository.findById(1))
+                .thenReturn(Optional.of(createUser(1)));
+
+        when(walletService.findWalletByUserId(1))
+                .thenThrow(new WalletNotFoundException(1));
+
+        assertThrows(
+                WalletNotFoundException.class,
+                () -> activityService.createActivity(createValidRequest())
+        );
+
+        verify(walletService, never()).reserveBalance(any(), any(), any());
+        verify(activityRepository, never()).save(any(ActivityEntity.class));
     }
 
     private void stubSchedulableProposal(PublicationType type, InteractionMode mode) {
@@ -444,6 +501,15 @@ class ActivityServiceImplTest {
                 "Central Library",
                 "https://meet.example.com/abc"
         );
+    }
+
+    private org.mockito.stubbing.Answer<ActivityEntity> savedActivityWithId() {
+
+        return invocation -> {
+            ActivityEntity saved = invocation.getArgument(0);
+            saved.setActivityId(100);
+            return saved;
+        };
     }
 
     private ActivityEntity createScheduledActivity() {

@@ -1,7 +1,9 @@
 package com.phelti.phelti.controller;
 
 import com.phelti.phelti.dto.DepositRequest;
+import com.phelti.phelti.dto.TransactionResponse;
 import com.phelti.phelti.dto.WalletResponse;
+import com.phelti.phelti.entity.TransactionEntity;
 import com.phelti.phelti.entity.WalletEntity;
 import com.phelti.phelti.service.WalletService;
 
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/wallets")
@@ -92,6 +96,41 @@ public class WalletController {
         WalletEntity wallet = walletService.deposit(userId, request.amount());
 
         return ResponseEntity.ok(toResponse(wallet));
+    }
+
+    @Operation(
+            summary = "Transaction history of a wallet",
+            description = "Lists the movements of phelts of the user (deposits, reservations, releases and transfers), newest first"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transactions listed"),
+            @ApiResponse(responseCode = "404", description = "Wallet not found")
+    })
+    @GetMapping("/users/{userId}/transactions")
+    public ResponseEntity<List<TransactionResponse>> findTransactions(
+            @Parameter(description = "User identifier", example = "1")
+            @PathVariable Integer userId) {
+
+        List<TransactionResponse> transactions = walletService.findTransactionsByUserId(userId)
+                .stream()
+                .map(this::toTransactionResponse)
+                .toList();
+
+        return ResponseEntity.ok(transactions);
+    }
+
+    private TransactionResponse toTransactionResponse(TransactionEntity transaction) {
+
+        return new TransactionResponse(
+                transaction.getTransactionId(),
+                transaction.getTransactionType(),
+                transaction.getAmount(),
+                transaction.getDescription(),
+                transaction.getCreatedAt(),
+                transaction.getActivityId(),
+                transaction.getOriginUserId(),
+                transaction.getDestinationUserId()
+        );
     }
 
     private WalletResponse toResponse(WalletEntity wallet) {
