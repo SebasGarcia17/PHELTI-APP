@@ -3,6 +3,7 @@ package com.phelti.phelti.controller;
 import com.phelti.phelti.dto.PublicationRequest;
 import com.phelti.phelti.dto.PublicationResponse;
 import com.phelti.phelti.model.Publication;
+import com.phelti.phelti.model.PublicationFilter;
 import com.phelti.phelti.service.PublicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,8 +20,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -60,6 +63,46 @@ public class PublicationController {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+        return ResponseEntity.ok(publications);
+    }
+
+    @Operation(
+            summary = "Search publications with filters",
+            description = "Filters by type, interaction mode, category, keyword in title or description and maximum phelts. Only PUBLISHED publications are returned unless a status is given"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Publications found"),
+            @ApiResponse(responseCode = "400", description = "Invalid filter value")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<List<PublicationResponse>> searchPublications(
+            @Parameter(description = "OFFERS_SUPPORT or NEEDS_SUPPORT", example = "OFFERS_SUPPORT")
+            @RequestParam(required = false) String publicationType,
+            @Parameter(description = "VIRTUAL or PRESENTIAL", example = "VIRTUAL")
+            @RequestParam(required = false) String interactionMode,
+            @Parameter(description = "Category identifier", example = "1")
+            @RequestParam(required = false) Integer categoryId,
+            @Parameter(description = "Text contained in the title or description", example = "guitar")
+            @RequestParam(required = false) String keyword,
+            @Parameter(description = "Maximum phelts per activity", example = "30")
+            @RequestParam(required = false) BigDecimal maxPheltAmount,
+            @Parameter(description = "Publication status, PUBLISHED by default", example = "PUBLISHED")
+            @RequestParam(required = false) String publicationStatus) {
+
+        PublicationFilter filter = new PublicationFilter(
+                publicationType,
+                interactionMode,
+                categoryId,
+                keyword,
+                maxPheltAmount,
+                publicationStatus
+        );
+
+        List<PublicationResponse> publications = publicationService.searchPublications(filter)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
         return ResponseEntity.ok(publications);
     }
 
@@ -122,6 +165,8 @@ public class PublicationController {
         publication.setPheltAmount(request.pheltAmount());
         publication.setNegotiable(request.negotiable());
         publication.setPublicationStatus(request.publicationStatus());
+        publication.setDurationMinutes(request.durationMinutes());
+        publication.setScheduledAt(request.scheduledAt());
         return publication;
     }
 
@@ -136,7 +181,9 @@ public class PublicationController {
                 publication.getInteractionMode(),
                 publication.getPheltAmount(),
                 publication.isNegotiable(),
-                publication.getPublicationStatus()
+                publication.getPublicationStatus(),
+                publication.getDurationMinutes(),
+                publication.getScheduledAt()
         );
     }
 }

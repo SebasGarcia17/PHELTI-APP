@@ -1,5 +1,6 @@
 package com.phelti.phelti.model;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class Proposal {
@@ -7,6 +8,7 @@ public class Proposal {
     private Integer publicationId;
     private Integer proposingUserId;
     private String message;
+    private BigDecimal proposedAmount;
     private String proposalStatus;
     private Instant createdAt;
 
@@ -40,6 +42,14 @@ public class Proposal {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public BigDecimal getProposedAmount() {
+        return proposedAmount;
+    }
+
+    public void setProposedAmount(BigDecimal proposedAmount) {
+        this.proposedAmount = proposedAmount;
     }
 
     public String getProposalStatus() {

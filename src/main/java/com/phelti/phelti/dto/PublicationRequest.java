@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Schema(description = "Data required to create or replace a publication (offer or request for support)")
 public record PublicationRequest(
@@ -35,6 +36,11 @@ public record PublicationRequest(
         @Schema(description = "Whether the amount can be negotiated", example = "true")
         boolean negotiable,
         @Schema(description = "Status; defaults to PUBLISHED when omitted", allowableValues = {"PUBLISHED", "IN_PROGRESS", "COMPLETED", "CANCELLED"}, example = "PUBLISHED")
-        String publicationStatus
+        String publicationStatus,
+        @Schema(description = "Expected duration in minutes (optional, greater than zero)", example = "60")
+        @Positive
+        Integer durationMinutes,
+        @Schema(description = "Proposed date and time of the activity (optional)", example = "2026-12-01T15:30:00")
+        LocalDateTime scheduledAt
 ) {
 }

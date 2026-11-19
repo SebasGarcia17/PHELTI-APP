@@ -28,6 +28,7 @@ public class JdbcProposalRepository implements ProposalRepository {
                     id_publicacion,
                     id_usuario_proponente,
                     mensaje,
+                    monto_tiempo,
                     estado,
                     fecha_creacion
                 FROM propuesta
@@ -45,6 +46,7 @@ public class JdbcProposalRepository implements ProposalRepository {
                     id_publicacion,
                     id_usuario_proponente,
                     mensaje,
+                    monto_tiempo,
                     estado,
                     fecha_creacion
                 FROM propuesta
@@ -63,6 +65,7 @@ public class JdbcProposalRepository implements ProposalRepository {
                     id_publicacion,
                     id_usuario_proponente,
                     mensaje,
+                    monto_tiempo,
                     estado,
                     fecha_creacion
                 FROM propuesta
@@ -80,9 +83,10 @@ public class JdbcProposalRepository implements ProposalRepository {
                     id_publicacion,
                     id_usuario_proponente,
                     mensaje,
+                    monto_tiempo,
                     estado
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 RETURNING id_propuesta, fecha_creacion
                 """;
 
@@ -91,6 +95,7 @@ public class JdbcProposalRepository implements ProposalRepository {
                 proposal.getPublicationId(),
                 proposal.getProposingUserId(),
                 proposal.getMessage(),
+                proposal.getProposedAmount(),
                 proposal.getProposalStatus()
         );
 
@@ -129,6 +134,7 @@ public class JdbcProposalRepository implements ProposalRepository {
         proposal.setPublicationId(resultSet.getInt("id_publicacion"));
         proposal.setProposingUserId(resultSet.getInt("id_usuario_proponente"));
         proposal.setMessage(resultSet.getString("mensaje"));
+        proposal.setProposedAmount(resultSet.getBigDecimal("monto_tiempo"));
         proposal.setProposalStatus(resultSet.getString("estado"));
         proposal.setCreatedAt(resultSet.getTimestamp("fecha_creacion").toInstant());
 

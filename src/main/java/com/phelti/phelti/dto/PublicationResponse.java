@@ -3,6 +3,7 @@ package com.phelti.phelti.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Schema(description = "Time-exchange publication (offer or request for support)")
 public record PublicationResponse(
@@ -25,6 +26,10 @@ public record PublicationResponse(
         @Schema(description = "Whether the amount can be negotiated", example = "true")
         boolean negotiable,
         @Schema(description = "Current status", allowableValues = {"PUBLISHED", "IN_PROGRESS", "COMPLETED", "CANCELLED"}, example = "PUBLISHED")
-        String publicationStatus
+        String publicationStatus,
+        @Schema(description = "Expected duration in minutes", example = "60")
+        Integer durationMinutes,
+        @Schema(description = "Proposed date and time of the activity", example = "2026-12-01T15:30:00")
+        LocalDateTime scheduledAt
 ) {
 }

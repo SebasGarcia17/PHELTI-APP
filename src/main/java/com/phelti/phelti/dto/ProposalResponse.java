@@ -2,6 +2,7 @@ package com.phelti.phelti.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Schema(description = "Proposal made by a user on a publication")
@@ -14,6 +15,8 @@ public record ProposalResponse(
         Integer proposingUserId,
         @Schema(description = "Optional message", example = "I can help on Saturday")
         String message,
+        @Schema(description = "Amount of phelts proposed, empty when the publication amount applies", example = "15.00")
+        BigDecimal proposedAmount,
         @Schema(description = "Current status", allowableValues = {"PENDING", "ACCEPTED", "REJECTED", "CANCELLED"}, example = "PENDING")
         String proposalStatus,
         @Schema(description = "Creation moment")

@@ -21,6 +21,7 @@ import com.phelti.phelti.repository.jpa.UserJpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -89,7 +90,13 @@ public class ActivityServiceImpl implements ActivityService {
         UserEntity requester = findUser(requesterId);
         UserEntity participant = findUser(participantId);
 
-        walletService.reserveBalance(requesterId, publication.getPheltAmount());
+        BigDecimal agreedAmount = proposal.getProposedAmount() != null
+                ? proposal.getProposedAmount()
+                : publication.getPheltAmount();
+
+        // The participant must already own a wallet, otherwise the transfer
+        // at completion time would fail after both users confirmed.
+        walletService.findWalletByUserId(participantId);
 
         ActivityEntity activity = new ActivityEntity();
         activity.setPublicationId(publication.getPublicationId());
@@ -102,11 +109,15 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setDurationMinutes(request.durationMinutes());
         activity.setLocation(request.location());
         activity.setVirtualLink(request.virtualLink());
-        activity.setAgreedAmount(publication.getPheltAmount());
+        activity.setAgreedAmount(agreedAmount);
         activity.setCheckInCode(UUID.randomUUID().toString());
         activity.setActivityStatus(ActivityStatus.SCHEDULED.name());
 
-        return activityRepository.save(activity);
+        ActivityEntity saved = activityRepository.save(activity);
+
+        walletService.reserveBalance(requesterId, agreedAmount, saved.getActivityId());
+
+        return saved;
     }
 
     @Override
@@ -141,7 +152,8 @@ public class ActivityServiceImpl implements ActivityService {
         walletService.transferReservedBalance(
                 activity.getRequester().getUserId(),
                 activity.getParticipant().getUserId(),
-                activity.getAgreedAmount()
+                activity.getAgreedAmount(),
+                activity.getActivityId()
         );
 
         publicationService.changePublicationStatus(
@@ -164,7 +176,8 @@ public class ActivityServiceImpl implements ActivityService {
 
         walletService.releaseReservedBalance(
                 activity.getRequester().getUserId(),
-                activity.getAgreedAmount()
+                activity.getAgreedAmount(),
+                activity.getActivityId()
         );
 
         proposalService.cancelAcceptedProposal(activity.getProposalId());

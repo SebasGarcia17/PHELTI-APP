@@ -127,6 +127,7 @@ public class ProposalController {
         proposal.setPublicationId(request.publicationId());
         proposal.setProposingUserId(request.proposingUserId());
         proposal.setMessage(request.message());
+        proposal.setProposedAmount(request.proposedAmount());
         return proposal;
     }
 
@@ -136,6 +137,7 @@ public class ProposalController {
                 proposal.getPublicationId(),
                 proposal.getProposingUserId(),
                 proposal.getMessage(),
+                proposal.getProposedAmount(),
                 proposal.getProposalStatus(),
                 proposal.getCreatedAt()
         );

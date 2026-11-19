@@ -4,6 +4,7 @@ import com.phelti.phelti.exception.InvalidPublicationDataException;
 import com.phelti.phelti.exception.PublicationNotFoundException;
 import com.phelti.phelti.model.InteractionMode;
 import com.phelti.phelti.model.Publication;
+import com.phelti.phelti.model.PublicationFilter;
 import com.phelti.phelti.model.PublicationStatus;
 import com.phelti.phelti.model.PublicationType;
 import com.phelti.phelti.repository.PublicationRepository;
@@ -11,6 +12,7 @@ import com.phelti.phelti.repository.PublicationRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -85,6 +87,37 @@ class PublicationServiceImplTest {
 
         verify(publicationRepository, never())
                 .createPublication(any(Publication.class));
+    }
+
+    @Test
+    void createPublicationShouldThrowExceptionWhenDurationIsNotPositive() {
+
+        Publication publication = createValidPublication();
+        publication.setDurationMinutes(0);
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.createPublication(publication)
+        );
+
+        verify(publicationRepository, never())
+                .createPublication(any(Publication.class));
+    }
+
+    @Test
+    void createPublicationShouldKeepDurationAndScheduledDateWhenProvided() {
+
+        Publication publication = createValidPublication();
+        publication.setDurationMinutes(90);
+        publication.setScheduledAt(java.time.LocalDateTime.of(2026, 12, 1, 15, 30));
+
+        when(publicationRepository.createPublication(publication))
+                .thenReturn(publication);
+
+        Publication result = publicationService.createPublication(publication);
+
+        assertEquals(90, result.getDurationMinutes());
+        assertEquals(java.time.LocalDateTime.of(2026, 12, 1, 15, 30), result.getScheduledAt());
     }
 
     @Test
@@ -409,6 +442,128 @@ class PublicationServiceImplTest {
 
         verify(publicationRepository, never())
                 .deletePublication(publicationId);
+    }
+
+    @Test
+    void searchPublicationsShouldDefaultToPublishedStatusAndNormalizeFilters() {
+
+        Publication publication = createValidPublication();
+
+        when(publicationRepository.searchPublications(any(PublicationFilter.class)))
+                .thenReturn(List.of(publication));
+
+        List<Publication> result = publicationService.searchPublications(
+                new PublicationFilter(
+                        " offers_support ",
+                        "virtual",
+                        3,
+                        "  guitar  ",
+                        new BigDecimal("30.00"),
+                        null
+                )
+        );
+
+        assertEquals(List.of(publication), result);
+
+        ArgumentCaptor<PublicationFilter> captor =
+                ArgumentCaptor.forClass(PublicationFilter.class);
+
+        verify(publicationRepository).searchPublications(captor.capture());
+
+        PublicationFilter sent = captor.getValue();
+
+        assertEquals(PublicationType.OFFERS_SUPPORT.name(), sent.publicationType());
+        assertEquals(InteractionMode.VIRTUAL.name(), sent.interactionMode());
+        assertEquals(3, sent.categoryId());
+        assertEquals("guitar", sent.keyword());
+        assertEquals(PublicationStatus.PUBLISHED.name(), sent.publicationStatus());
+    }
+
+    @Test
+    void searchPublicationsShouldTreatBlankFiltersAsMissing() {
+
+        when(publicationRepository.searchPublications(any(PublicationFilter.class)))
+                .thenReturn(List.of());
+
+        publicationService.searchPublications(
+                new PublicationFilter(" ", "", null, "   ", null, "")
+        );
+
+        ArgumentCaptor<PublicationFilter> captor =
+                ArgumentCaptor.forClass(PublicationFilter.class);
+
+        verify(publicationRepository).searchPublications(captor.capture());
+
+        PublicationFilter sent = captor.getValue();
+
+        assertEquals(null, sent.publicationType());
+        assertEquals(null, sent.interactionMode());
+        assertEquals(null, sent.keyword());
+        assertEquals(PublicationStatus.PUBLISHED.name(), sent.publicationStatus());
+    }
+
+    @Test
+    void searchPublicationsShouldKeepExplicitStatus() {
+
+        when(publicationRepository.searchPublications(any(PublicationFilter.class)))
+                .thenReturn(List.of());
+
+        publicationService.searchPublications(
+                new PublicationFilter(null, null, null, null, null, "completed")
+        );
+
+        ArgumentCaptor<PublicationFilter> captor =
+                ArgumentCaptor.forClass(PublicationFilter.class);
+
+        verify(publicationRepository).searchPublications(captor.capture());
+
+        assertEquals(PublicationStatus.COMPLETED.name(), captor.getValue().publicationStatus());
+    }
+
+    @Test
+    void searchPublicationsShouldThrowExceptionWhenTypeIsInvalid() {
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.searchPublications(
+                        new PublicationFilter("OTHER", null, null, null, null, null)
+                )
+        );
+
+        verify(publicationRepository, never()).searchPublications(any(PublicationFilter.class));
+    }
+
+    @Test
+    void searchPublicationsShouldThrowExceptionWhenModeIsInvalid() {
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.searchPublications(
+                        new PublicationFilter(null, "HOLOGRAM", null, null, null, null)
+                )
+        );
+    }
+
+    @Test
+    void searchPublicationsShouldThrowExceptionWhenStatusIsInvalid() {
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.searchPublications(
+                        new PublicationFilter(null, null, null, null, null, "DONE")
+                )
+        );
+    }
+
+    @Test
+    void searchPublicationsShouldThrowExceptionWhenMaxAmountIsNotPositive() {
+
+        assertThrows(
+                InvalidPublicationDataException.class,
+                () -> publicationService.searchPublications(
+                        new PublicationFilter(null, null, null, null, BigDecimal.ZERO, null)
+                )
+        );
     }
 
     private Publication createValidPublication() {

@@ -1,8 +1,10 @@
 package com.phelti.phelti.service;
 
+import com.phelti.phelti.entity.TransactionEntity;
 import com.phelti.phelti.entity.WalletEntity;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface WalletService {
 
@@ -12,9 +14,11 @@ public interface WalletService {
 
     WalletEntity deposit(Integer userId, BigDecimal amount);
 
-    void reserveBalance(Integer userId, BigDecimal amount);
+    List<TransactionEntity> findTransactionsByUserId(Integer userId);
 
-    void releaseReservedBalance(Integer userId, BigDecimal amount);
+    void reserveBalance(Integer userId, BigDecimal amount, Integer activityId);
 
-    void transferReservedBalance(Integer fromUserId, Integer toUserId, BigDecimal amount);
+    void releaseReservedBalance(Integer userId, BigDecimal amount, Integer activityId);
+
+    void transferReservedBalance(Integer fromUserId, Integer toUserId, BigDecimal amount, Integer activityId);
 }
