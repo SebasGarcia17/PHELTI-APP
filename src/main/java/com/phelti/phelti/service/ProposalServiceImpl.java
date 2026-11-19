@@ -1,6 +1,7 @@
 package com.phelti.phelti.service;
 
 import com.phelti.phelti.exception.InvalidProposalDataException;
+import com.phelti.phelti.exception.ProposalAlreadyExistsException;
 import com.phelti.phelti.exception.ProposalNotFoundException;
 import com.phelti.phelti.model.Proposal;
 import com.phelti.phelti.model.ProposalStatus;
@@ -11,6 +12,7 @@ import com.phelti.phelti.repository.ProposalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -50,6 +52,9 @@ public class ProposalServiceImpl implements ProposalService {
                     "a user cannot propose on their own publication"
             );
         }
+
+        ensureNoActiveProposalFromUser(proposal);
+        validateProposedAmount(proposal, publication);
 
         proposal.setProposalStatus(
                 ProposalStatus.PENDING.name()
@@ -167,6 +172,23 @@ public class ProposalServiceImpl implements ProposalService {
         proposalRepository.deleteProposal(proposalId);
     }
 
+    private void ensureNoActiveProposalFromUser(Proposal proposal) {
+        boolean alreadyProposed = proposalRepository
+                .findProposalsByPublicationId(proposal.getPublicationId())
+                .stream()
+                .anyMatch(existing ->
+                        proposal.getProposingUserId().equals(existing.getProposingUserId())
+                                && (ProposalStatus.PENDING.name().equals(existing.getProposalStatus())
+                                || ProposalStatus.ACCEPTED.name().equals(existing.getProposalStatus())));
+
+        if (alreadyProposed) {
+            throw new ProposalAlreadyExistsException(
+                    proposal.getProposingUserId(),
+                    proposal.getPublicationId()
+            );
+        }
+    }
+
     private void rejectOtherPendingProposals(
             Proposal acceptedProposal) {
 
@@ -192,6 +214,29 @@ public class ProposalServiceImpl implements ProposalService {
                         ProposalStatus.REJECTED.name()
                 );
             }
+        }
+    }
+
+    private void validateProposedAmount(
+            Proposal proposal,
+            Publication publication) {
+
+        BigDecimal proposedAmount = proposal.getProposedAmount();
+
+        if (proposedAmount == null) {
+            return;
+        }
+
+        if (proposedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidProposalDataException(
+                    "proposedAmount must be greater than zero"
+            );
+        }
+
+        if (!publication.isNegotiable()) {
+            throw new InvalidProposalDataException(
+                    "the publication is not negotiable, proposedAmount is not allowed"
+            );
         }
     }
 

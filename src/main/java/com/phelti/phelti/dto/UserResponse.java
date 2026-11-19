@@ -15,6 +15,10 @@ public record UserResponse(
         @Schema(description = "Optional description", example = "Guitar teacher")
         String description,
         @Schema(description = "Average rating received", example = "0.00")
-        BigDecimal averageRating
+        BigDecimal averageRating,
+        @Schema(description = "City or area of the user", example = "Medellin")
+        String location,
+        @Schema(description = "Preferred interaction mode", allowableValues = {"VIRTUAL", "PRESENTIAL"})
+        String preferredInteractionMode
 ) {
 }

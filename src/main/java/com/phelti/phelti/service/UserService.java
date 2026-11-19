@@ -11,4 +11,17 @@ public interface UserService {
     UserEntity findUserById(Integer userId);
 
     List<UserEntity> findAllUsers();
+
+    UserEntity updateUserProfile(
+            Integer userId,
+            String name,
+            String description,
+            String location,
+            String preferredInteractionMode);
+
+    List<UserEntity> searchUsers(
+            Integer skillId,
+            Integer interestId,
+            String interactionMode,
+            String dayOfWeek);
 }

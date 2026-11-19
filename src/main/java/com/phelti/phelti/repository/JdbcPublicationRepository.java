@@ -1,12 +1,15 @@
 package com.phelti.phelti.repository;
 
 import com.phelti.phelti.model.Publication;
+import com.phelti.phelti.model.PublicationFilter;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,11 +36,69 @@ public class JdbcPublicationRepository implements PublicationRepository {
                     modalidad,
                     valor_tiempo,
                     negociable,
-                    estado
+                    estado,
+                    duracion,
+                    fecha_hora
                 FROM publicacion
                 """;
 
         return jdbcTemplate.query(sql, this::mapPublication);
+    }
+
+    @Override
+    public List<Publication> searchPublications(PublicationFilter filter) {
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    id_publicacion,
+                    id_usuario,
+                    id_categoria,
+                    tipo,
+                    titulo,
+                    descripcion,
+                    modalidad,
+                    valor_tiempo,
+                    negociable,
+                    estado,
+                    duracion,
+                    fecha_hora
+                FROM publicacion
+                WHERE estado = ?
+                """);
+
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(filter.publicationStatus());
+
+        if (filter.publicationType() != null) {
+            sql.append(" AND tipo = ?");
+            parameters.add(filter.publicationType());
+        }
+
+        if (filter.interactionMode() != null) {
+            sql.append(" AND modalidad = ?");
+            parameters.add(filter.interactionMode());
+        }
+
+        if (filter.categoryId() != null) {
+            sql.append(" AND id_categoria = ?");
+            parameters.add(filter.categoryId());
+        }
+
+        if (filter.maxPheltAmount() != null) {
+            sql.append(" AND valor_tiempo <= ?");
+            parameters.add(filter.maxPheltAmount());
+        }
+
+        if (filter.keyword() != null) {
+            sql.append(" AND (LOWER(titulo) LIKE ? OR LOWER(descripcion) LIKE ?)");
+            String pattern = "%" + filter.keyword().toLowerCase() + "%";
+            parameters.add(pattern);
+            parameters.add(pattern);
+        }
+
+        sql.append(" ORDER BY id_publicacion DESC");
+
+        return jdbcTemplate.query(sql.toString(), this::mapPublication, parameters.toArray());
     }
 
    @Override
@@ -54,7 +115,9 @@ public Optional<Publication> findPublicationById(Integer publicationId) {
                 modalidad,
                 valor_tiempo,
                 negociable,
-                estado
+                estado,
+                duracion,
+                fecha_hora
             FROM publicacion
             WHERE id_publicacion = ?
             """;
@@ -78,9 +141,11 @@ public Publication createPublication(Publication publication) {
                 modalidad,
                 valor_tiempo,
                 negociable,
-                estado
+                estado,
+                duracion,
+                fecha_hora
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id_publicacion
             """;
 
@@ -95,7 +160,9 @@ public Publication createPublication(Publication publication) {
             publication.getInteractionMode(),
             publication.getPheltAmount(),
             publication.isNegotiable(),
-            publication.getPublicationStatus()
+            publication.getPublicationStatus(),
+            publication.getDurationMinutes(),
+            publication.getScheduledAt() == null ? null : Timestamp.valueOf(publication.getScheduledAt())
     );
 
     publication.setPublicationId(generatedId);
@@ -117,7 +184,9 @@ public Publication updatePublication(Integer publicationId, Publication publicat
                 modalidad = ?,
                 valor_tiempo = ?,
                 negociable = ?,
-                estado = ?
+                estado = ?,
+                duracion = ?,
+                fecha_hora = ?
             WHERE id_publicacion = ?
             """;
 
@@ -132,6 +201,8 @@ public Publication updatePublication(Integer publicationId, Publication publicat
             publication.getPheltAmount(),
             publication.isNegotiable(),
             publication.getPublicationStatus(),
+            publication.getDurationMinutes(),
+            publication.getScheduledAt() == null ? null : Timestamp.valueOf(publication.getScheduledAt()),
             publicationId
     );
 
@@ -167,6 +238,10 @@ public void deletePublication(Integer publicationId) {
         publication.setPheltAmount(resultSet.getBigDecimal("valor_tiempo"));
         publication.setNegotiable(resultSet.getBoolean("negociable"));
         publication.setPublicationStatus(resultSet.getString("estado"));
+        publication.setDurationMinutes(resultSet.getObject("duracion", Integer.class));
+
+        Timestamp scheduledAt = resultSet.getTimestamp("fecha_hora");
+        publication.setScheduledAt(scheduledAt == null ? null : scheduledAt.toLocalDateTime());
 
         return publication;
     }

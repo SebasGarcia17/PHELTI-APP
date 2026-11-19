@@ -1,5 +1,6 @@
 package com.phelti.phelti.controller;
 
+import com.phelti.phelti.dto.ProfileUpdateRequest;
 import com.phelti.phelti.dto.UserRequest;
 import com.phelti.phelti.dto.UserResponse;
 import com.phelti.phelti.entity.UserEntity;
@@ -15,8 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -77,6 +80,60 @@ public class UserController {
         return ResponseEntity.ok(toResponse(userService.findUserById(userId)));
     }
 
+    @Operation(
+            summary = "Update the profile of a user",
+            description = "Updates name, description, location and preferred interaction mode"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Profile updated"),
+            @ApiResponse(responseCode = "400", description = "Invalid profile data"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> updateUserProfile(
+            @Parameter(description = "User identifier", example = "1")
+            @PathVariable("id") Integer userId,
+            @Valid @RequestBody ProfileUpdateRequest request) {
+
+        UserEntity user = userService.updateUserProfile(
+                userId,
+                request.name(),
+                request.description(),
+                request.location(),
+                request.preferredInteractionMode()
+        );
+
+        return ResponseEntity.ok(toResponse(user));
+    }
+
+    @Operation(
+            summary = "Search users",
+            description = "Filters users by skill, interest, preferred interaction mode and day of availability. All filters are optional and combined"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Users found"),
+            @ApiResponse(responseCode = "400", description = "Invalid filter value")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<List<UserResponse>> searchUsers(
+            @Parameter(description = "Skill identifier", example = "1")
+            @RequestParam(required = false) Integer skillId,
+            @Parameter(description = "Interest identifier", example = "1")
+            @RequestParam(required = false) Integer interestId,
+            @Parameter(description = "Preferred interaction mode", example = "VIRTUAL")
+            @RequestParam(required = false) String interactionMode,
+            @Parameter(description = "Day of the week with availability", example = "SATURDAY")
+            @RequestParam(required = false) String dayOfWeek) {
+
+        List<UserResponse> users = userService
+                .searchUsers(skillId, interestId, interactionMode, dayOfWeek)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(users);
+    }
+
     private UserResponse toResponse(UserEntity user) {
 
         return new UserResponse(
@@ -84,7 +141,9 @@ public class UserController {
                 user.getName(),
                 user.getEmail(),
                 user.getDescription(),
-                user.getAverageRating()
+                user.getAverageRating(),
+                user.getLocation(),
+                user.getPreferredInteractionMode()
         );
     }
 }

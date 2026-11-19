@@ -1,5 +1,6 @@
 package com.phelti.phelti.service;
 
+import com.phelti.phelti.entity.TransactionEntity;
 import com.phelti.phelti.entity.UserEntity;
 import com.phelti.phelti.entity.WalletEntity;
 import com.phelti.phelti.exception.InsufficientBalanceException;
@@ -7,17 +8,20 @@ import com.phelti.phelti.exception.InvalidWalletOperationException;
 import com.phelti.phelti.exception.UserNotFoundException;
 import com.phelti.phelti.exception.WalletAlreadyExistsException;
 import com.phelti.phelti.exception.WalletNotFoundException;
+import com.phelti.phelti.repository.jpa.TransactionJpaRepository;
 import com.phelti.phelti.repository.jpa.UserJpaRepository;
 import com.phelti.phelti.repository.jpa.WalletJpaRepository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +42,11 @@ class WalletServiceImplTest {
 
     @Mock
     private UserJpaRepository userRepository;
+
+    @Mock
+    private TransactionJpaRepository transactionRepository;
+
+    private static final Integer ACTIVITY_ID = 7;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -183,7 +193,7 @@ class WalletServiceImplTest {
         when(walletRepository.findForUpdateByUserId(1))
                 .thenReturn(Optional.of(wallet));
 
-        walletService.reserveBalance(1, new BigDecimal("20.00"));
+        walletService.reserveBalance(1, new BigDecimal("20.00"), ACTIVITY_ID);
 
         assertEquals(0, new BigDecimal("10.00").compareTo(wallet.getAvailableBalance()));
         assertEquals(0, new BigDecimal("25.00").compareTo(wallet.getReservedBalance()));
@@ -200,7 +210,7 @@ class WalletServiceImplTest {
 
         assertThrows(
                 InsufficientBalanceException.class,
-                () -> walletService.reserveBalance(1, new BigDecimal("20.00"))
+                () -> walletService.reserveBalance(1, new BigDecimal("20.00"), ACTIVITY_ID)
         );
 
         verify(walletRepository, never()).save(any(WalletEntity.class));
@@ -211,7 +221,7 @@ class WalletServiceImplTest {
 
         assertThrows(
                 InvalidWalletOperationException.class,
-                () -> walletService.reserveBalance(1, new BigDecimal("-1"))
+                () -> walletService.reserveBalance(1, new BigDecimal("-1"), ACTIVITY_ID)
         );
     }
 
@@ -223,7 +233,7 @@ class WalletServiceImplTest {
         when(walletRepository.findForUpdateByUserId(1))
                 .thenReturn(Optional.of(wallet));
 
-        walletService.releaseReservedBalance(1, new BigDecimal("20.00"));
+        walletService.releaseReservedBalance(1, new BigDecimal("20.00"), ACTIVITY_ID);
 
         assertEquals(0, new BigDecimal("30.00").compareTo(wallet.getAvailableBalance()));
         assertEquals(0, BigDecimal.ZERO.compareTo(wallet.getReservedBalance()));
@@ -240,7 +250,7 @@ class WalletServiceImplTest {
 
         assertThrows(
                 InvalidWalletOperationException.class,
-                () -> walletService.releaseReservedBalance(1, new BigDecimal("20.00"))
+                () -> walletService.releaseReservedBalance(1, new BigDecimal("20.00"), ACTIVITY_ID)
         );
 
         verify(walletRepository, never()).save(any(WalletEntity.class));
@@ -258,7 +268,7 @@ class WalletServiceImplTest {
         when(walletRepository.findForUpdateByUserId(2))
                 .thenReturn(Optional.of(destination));
 
-        walletService.transferReservedBalance(1, 2, new BigDecimal("20.00"));
+        walletService.transferReservedBalance(1, 2, new BigDecimal("20.00"), ACTIVITY_ID);
 
         assertEquals(0, BigDecimal.ZERO.compareTo(source.getReservedBalance()));
         assertEquals(0, new BigDecimal("25.00").compareTo(destination.getAvailableBalance()));
@@ -271,7 +281,7 @@ class WalletServiceImplTest {
 
         assertThrows(
                 InvalidWalletOperationException.class,
-                () -> walletService.transferReservedBalance(1, 1, BigDecimal.TEN)
+                () -> walletService.transferReservedBalance(1, 1, BigDecimal.TEN, ACTIVITY_ID)
         );
 
         verify(walletRepository, never()).save(any(WalletEntity.class));
@@ -291,10 +301,150 @@ class WalletServiceImplTest {
 
         assertThrows(
                 InvalidWalletOperationException.class,
-                () -> walletService.transferReservedBalance(1, 2, new BigDecimal("20.00"))
+                () -> walletService.transferReservedBalance(1, 2, new BigDecimal("20.00"), ACTIVITY_ID)
         );
 
         verify(walletRepository, never()).save(any(WalletEntity.class));
+    }
+
+    @Test
+    void depositShouldRecordDepositTransaction() {
+
+        WalletEntity wallet = createWallet(1, "10.00", "0.00");
+
+        when(walletRepository.findForUpdateByUserId(1))
+                .thenReturn(Optional.of(wallet));
+
+        when(walletRepository.save(wallet))
+                .thenReturn(wallet);
+
+        walletService.deposit(1, new BigDecimal("15.50"));
+
+        ArgumentCaptor<TransactionEntity> captor =
+                ArgumentCaptor.forClass(TransactionEntity.class);
+
+        verify(transactionRepository).save(captor.capture());
+
+        TransactionEntity transaction = captor.getValue();
+
+        assertEquals("DEPOSIT", transaction.getTransactionType());
+        assertEquals(0, new BigDecimal("15.50").compareTo(transaction.getAmount()));
+        assertEquals(wallet, transaction.getWallet());
+        assertNotNull(transaction.getCreatedAt());
+    }
+
+    @Test
+    void reserveBalanceShouldRecordReserveTransaction() {
+
+        WalletEntity wallet = createWallet(1, "30.00", "0.00");
+
+        when(walletRepository.findForUpdateByUserId(1))
+                .thenReturn(Optional.of(wallet));
+
+        walletService.reserveBalance(1, new BigDecimal("20.00"), ACTIVITY_ID);
+
+        ArgumentCaptor<TransactionEntity> captor =
+                ArgumentCaptor.forClass(TransactionEntity.class);
+
+        verify(transactionRepository).save(captor.capture());
+
+        assertEquals("RESERVE", captor.getValue().getTransactionType());
+        assertEquals(ACTIVITY_ID, captor.getValue().getActivityId());
+    }
+
+    @Test
+    void releaseReservedBalanceShouldRecordReleaseTransaction() {
+
+        WalletEntity wallet = createWallet(1, "0.00", "20.00");
+
+        when(walletRepository.findForUpdateByUserId(1))
+                .thenReturn(Optional.of(wallet));
+
+        walletService.releaseReservedBalance(1, new BigDecimal("20.00"), ACTIVITY_ID);
+
+        ArgumentCaptor<TransactionEntity> captor =
+                ArgumentCaptor.forClass(TransactionEntity.class);
+
+        verify(transactionRepository).save(captor.capture());
+
+        assertEquals("RELEASE", captor.getValue().getTransactionType());
+        assertEquals(ACTIVITY_ID, captor.getValue().getActivityId());
+    }
+
+    @Test
+    void transferReservedBalanceShouldRecordOutgoingAndIncomingTransactions() {
+
+        WalletEntity source = createWallet(1, "0.00", "20.00");
+        WalletEntity destination = createWallet(2, "5.00", "0.00");
+
+        when(walletRepository.findForUpdateByUserId(1))
+                .thenReturn(Optional.of(source));
+
+        when(walletRepository.findForUpdateByUserId(2))
+                .thenReturn(Optional.of(destination));
+
+        walletService.transferReservedBalance(1, 2, new BigDecimal("20.00"), ACTIVITY_ID);
+
+        ArgumentCaptor<TransactionEntity> captor =
+                ArgumentCaptor.forClass(TransactionEntity.class);
+
+        verify(transactionRepository, times(2)).save(captor.capture());
+
+        List<TransactionEntity> saved = captor.getAllValues();
+
+        assertEquals("TRANSFER_OUT", saved.get(0).getTransactionType());
+        assertEquals(source, saved.get(0).getWallet());
+        assertEquals("TRANSFER_IN", saved.get(1).getTransactionType());
+        assertEquals(destination, saved.get(1).getWallet());
+
+        for (TransactionEntity transaction : saved) {
+            assertEquals(ACTIVITY_ID, transaction.getActivityId());
+            assertEquals(1, transaction.getOriginUserId());
+            assertEquals(2, transaction.getDestinationUserId());
+        }
+    }
+
+    @Test
+    void transferReservedBalanceShouldNotRecordTransactionsWhenItFails() {
+
+        assertThrows(
+                InvalidWalletOperationException.class,
+                () -> walletService.transferReservedBalance(1, 1, new BigDecimal("5.00"), ACTIVITY_ID)
+        );
+
+        verify(transactionRepository, never()).save(any(TransactionEntity.class));
+    }
+
+    @Test
+    void findTransactionsByUserIdShouldReturnTransactionsWhenWalletExists() {
+
+        WalletEntity wallet = createWallet(1, "10.00", "0.00");
+        TransactionEntity transaction = new TransactionEntity();
+
+        when(walletRepository.findByUserUserId(1))
+                .thenReturn(Optional.of(wallet));
+
+        when(transactionRepository.findByUserId(1))
+                .thenReturn(List.of(transaction));
+
+        List<TransactionEntity> result = walletService.findTransactionsByUserId(1);
+
+        assertEquals(1, result.size());
+        assertEquals(transaction, result.get(0));
+    }
+
+    @Test
+    void findTransactionsByUserIdShouldThrowExceptionWhenWalletDoesNotExist() {
+
+        when(walletRepository.findByUserUserId(9))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                WalletNotFoundException.class,
+                () -> walletService.findTransactionsByUserId(9)
+        );
+
+        verify(transactionRepository, never()).findByUserId(any());
     }
 
     private UserEntity createUser(Integer userId) {
