@@ -36,6 +36,9 @@ class PublicationServiceImplTest {
     @Mock
     private PublicationRepository publicationRepository;
 
+    @Mock
+    private WalletService walletService;
+
     @InjectMocks
     private PublicationServiceImpl publicationService;
 
@@ -105,11 +108,10 @@ class PublicationServiceImplTest {
     }
 
     @Test
-    void createPublicationShouldKeepDurationAndScheduledDateWhenProvided() {
+    void createPublicationShouldKeepDurationWhenProvided() {
 
         Publication publication = createValidPublication();
         publication.setDurationMinutes(90);
-        publication.setScheduledAt(java.time.LocalDateTime.of(2026, 12, 1, 15, 30));
 
         when(publicationRepository.createPublication(publication))
                 .thenReturn(publication);
@@ -117,7 +119,6 @@ class PublicationServiceImplTest {
         Publication result = publicationService.createPublication(publication);
 
         assertEquals(90, result.getDurationMinutes());
-        assertEquals(java.time.LocalDateTime.of(2026, 12, 1, 15, 30), result.getScheduledAt());
     }
 
     @Test
@@ -259,37 +260,12 @@ class PublicationServiceImplTest {
     }
 
     @Test
-    void updatePublicationShouldKeepExistingStatusWhenStatusIsBlank() {
-
-        Integer publicationId = 1;
-
+    void updatePublicationShouldRejectInProgressPublication() {
         Publication existing = createValidPublication();
-        existing.setPublicationId(publicationId);
-        existing.setPublicationStatus(
-                PublicationStatus.IN_PROGRESS.name()
-        );
-
-        Publication updated = createValidPublication();
-        updated.setPublicationStatus(null);
-
-        when(publicationRepository.findPublicationById(publicationId))
-                .thenReturn(Optional.of(existing));
-
-        when(publicationRepository.updatePublication(
-                publicationId,
-                updated
-        )).thenReturn(updated);
-
-        Publication result =
-                publicationService.updatePublication(
-                        publicationId,
-                        updated
-                );
-
-        assertEquals(
-                PublicationStatus.IN_PROGRESS.name(),
-                result.getPublicationStatus()
-        );
+        existing.setPublicationStatus(PublicationStatus.IN_PROGRESS.name());
+        when(publicationRepository.findPublicationById(1)).thenReturn(Optional.of(existing));
+        assertThrows(InvalidPublicationDataException.class, () -> publicationService.updatePublication(1, createValidPublication()));
+        verify(publicationRepository, never()).updatePublication(any(), any());
     }
 
     @Test
@@ -411,7 +387,7 @@ class PublicationServiceImplTest {
     }
 
     @Test
-    void deletePublicationShouldDeletePublicationWhenItExists() {
+    void deletePublicationShouldWithdrawPublicationWithoutDeletingHistory() {
 
         Integer publicationId = 1;
 
@@ -423,8 +399,9 @@ class PublicationServiceImplTest {
 
         publicationService.deletePublication(publicationId);
 
-        verify(publicationRepository)
-                .deletePublication(publicationId);
+        verify(publicationRepository).rejectPendingProposals(publicationId);
+        verify(publicationRepository).updatePublication(publicationId, publication);
+        assertEquals(PublicationStatus.CANCELLED.name(), publication.getPublicationStatus());
     }
 
     @Test
@@ -566,6 +543,17 @@ class PublicationServiceImplTest {
         );
     }
 
+    @Test
+    void createPublicationShouldRejectMissingDuration() {
+        Publication publication = createValidPublication(); publication.setDurationMinutes(null);
+        assertThrows(InvalidPublicationDataException.class, () -> publicationService.createPublication(publication));
+    }
+    @Test
+    void createPublicationShouldRejectBlankDescription() {
+        Publication publication = createValidPublication(); publication.setDescription("   ");
+        assertThrows(InvalidPublicationDataException.class, () -> publicationService.createPublication(publication));
+    }
+
     private Publication createValidPublication() {
 
         Publication publication = new Publication();
@@ -591,6 +579,7 @@ class PublicationServiceImplTest {
         );
 
         publication.setNegotiable(true);
+        publication.setDurationMinutes(60);
 
         publication.setPublicationStatus(
                 PublicationStatus.PUBLISHED.name()

@@ -2,9 +2,7 @@ package com.phelti.phelti.service;
 
 import com.phelti.phelti.entity.InterestEntity;
 import com.phelti.phelti.entity.UserEntity;
-import com.phelti.phelti.exception.InvalidInterestDataException;
 import com.phelti.phelti.exception.InterestAlreadyAssignedException;
-import com.phelti.phelti.exception.InterestAlreadyExistsException;
 import com.phelti.phelti.exception.InterestNotAssignedException;
 import com.phelti.phelti.exception.InterestNotFoundException;
 import com.phelti.phelti.exception.UserNotFoundException;
@@ -42,57 +40,6 @@ class InterestServiceImplTest {
 
     @InjectMocks
     private InterestServiceImpl interestService;
-
-    @Test
-    void createInterestShouldSaveTrimmedNameWhenDataIsValid() {
-
-        when(interestRepository.existsByNameIgnoreCase("Guitar"))
-                .thenReturn(false);
-
-        when(interestRepository.save(any(InterestEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        InterestEntity result = interestService.createInterest("  Guitar ");
-
-        assertEquals("Guitar", result.getName());
-        verify(interestRepository).save(result);
-    }
-
-    @Test
-    void createInterestShouldThrowExceptionWhenNameIsBlank() {
-
-        assertThrows(
-                InvalidInterestDataException.class,
-                () -> interestService.createInterest(" ")
-        );
-
-        verify(interestRepository, never()).save(any(InterestEntity.class));
-    }
-
-    @Test
-    void createInterestShouldThrowExceptionWhenNameIsTooLong() {
-
-        String longName = "x".repeat(81);
-
-        assertThrows(
-                InvalidInterestDataException.class,
-                () -> interestService.createInterest(longName)
-        );
-    }
-
-    @Test
-    void createInterestShouldThrowExceptionWhenInterestAlreadyExists() {
-
-        when(interestRepository.existsByNameIgnoreCase("Guitar"))
-                .thenReturn(true);
-
-        assertThrows(
-                InterestAlreadyExistsException.class,
-                () -> interestService.createInterest("Guitar")
-        );
-
-        verify(interestRepository, never()).save(any(InterestEntity.class));
-    }
 
     @Test
     void findAllInterestsShouldReturnRepositoryInterests() {
