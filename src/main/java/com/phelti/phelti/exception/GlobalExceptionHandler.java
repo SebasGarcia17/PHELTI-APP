@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Request body is missing or malformed"
+                "Revisa los datos enviados: faltan campos o hay un formato incorrecto."
         );
     }
 
@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Invalid value for parameter: " + exception.getName()
+                "Uno de los valores enviados no es válido."
         );
     }
 
@@ -69,8 +69,7 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "The operation violates a data integrity constraint "
-                        + "(referenced record missing or still in use)"
+                "No se puede realizar la operación: hay un registro duplicado, inexistente o en uso."
         );
     }
 
@@ -81,11 +80,17 @@ public class GlobalExceptionHandler {
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error -> error.getField() + " " + error.getDefaultMessage())
+                .map(error -> "Revisa " + fieldName(error.getField()))
                 .sorted()
                 .collect(Collectors.joining("; "));
 
         return buildResponse(HttpStatus.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleAccess(org.springframework.web.server.ResponseStatusException exception) {
+        return ResponseEntity.status(exception.getStatusCode()).body(new ErrorResponse(
+                Instant.now().toString(), exception.getStatusCode().value(), "Solicitud rechazada", exception.getReason()));
     }
 
     @ExceptionHandler(Exception.class)
@@ -102,7 +107,7 @@ public class GlobalExceptionHandler {
                             Instant.now().toString(),
                             code,
                             reason,
-                            exception.getMessage()
+                            "No se pudo procesar la solicitud."
                     ));
         }
 
@@ -110,8 +115,23 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "Unexpected error, please try again later"
+                "Ocurrió un error inesperado. Intenta de nuevo."
         );
+    }
+
+    private String fieldName(String field) {
+        return switch (field) {
+            case "name" -> "el nombre"; case "email" -> "el correo electrónico";
+            case "title" -> "el título"; case "description" -> "la descripción";
+            case "durationMinutes" -> "la duración"; case "activityDate" -> "la fecha";
+            case "activityTime", "startTime", "endTime" -> "la hora";
+            case "amount", "pheltAmount", "proposedAmount" -> "el importe";
+            case "location" -> "la ubicación"; case "virtualLink" -> "el enlace de reunión";
+            case "score" -> "la puntuación"; case "comment" -> "el comentario";
+            case "dayOfWeek" -> "el día de la semana"; case "categoryId" -> "la categoría";
+            case "publicationType" -> "el tipo de publicación"; case "interactionMode", "preferredInteractionMode" -> "la modalidad";
+            default -> "los datos del formulario";
+        };
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(

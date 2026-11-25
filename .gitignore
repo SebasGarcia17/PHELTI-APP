@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Configuración local y resultados de ejecución
+.env
+.env.*
+*.log
+resultados-*/
+*.class
+.DS_Store

@@ -1,5 +1,6 @@
 package com.phelti.phelti.controller;
 
+import com.phelti.phelti.config.DemoAccess;
 import com.phelti.phelti.dto.UserMetricsResponse;
 import com.phelti.phelti.model.UserMetrics;
 import com.phelti.phelti.service.MetricsService;
@@ -20,9 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MetricsController {
 
     private final MetricsService metricsService;
+    private final DemoAccess access;
 
-    public MetricsController(MetricsService metricsService) {
+    public MetricsController(MetricsService metricsService, DemoAccess access) {
         this.metricsService = metricsService;
+        this.access = access;
     }
 
     @Operation(
@@ -31,6 +34,7 @@ public class MetricsController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Metrics calculated"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
     @GetMapping("/{id}/metrics")
@@ -38,6 +42,7 @@ public class MetricsController {
             @Parameter(description = "User identifier", example = "1")
             @PathVariable("id") Integer userId) {
 
+        access.requireGateway();
         return ResponseEntity.ok(toResponse(metricsService.findUserMetrics(userId)));
     }
 

@@ -31,20 +31,25 @@ import java.util.List;
 @Tag(name = "Activities", description = "Scheduling, confirmation and cancellation of time-exchange activities")
 public class ActivityController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final ActivityService activityService;
+    private final com.phelti.phelti.service.ScheduleService schedules;
     private final ConfirmationService confirmationService;
 
     public ActivityController(
-            ActivityService activityService,
-            ConfirmationService confirmationService) {
+            com.phelti.phelti.config.DemoAccess access, ActivityService activityService,
+            ConfirmationService confirmationService, com.phelti.phelti.service.ScheduleService schedules) {
+        this.access = access;
 
         this.activityService = activityService;
+        this.schedules = schedules;
         this.confirmationService = confirmationService;
     }
 
     @Operation(
             summary = "Schedule an activity from an accepted proposal",
-            description = "Reserves the agreed phelts from the requester wallet and generates the check-in code"
+            description = "The provider must accept the exact pending schedule proposed by the requester. Reserves phelts atomically."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Activity scheduled"),
@@ -54,8 +59,9 @@ public class ActivityController {
     })
     @PostMapping
     public ResponseEntity<ActivityResponse> createActivity(@Valid @RequestBody ActivityRequest request) {
+        access.proposalParticipant(request.proposalId());
 
-        ActivityEntity activity = activityService.createActivity(request);
+        ActivityEntity activity = schedules.acceptMatching(request, access.actor());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(activity));
     }
@@ -69,6 +75,7 @@ public class ActivityController {
     public ResponseEntity<ActivityResponse> findActivityById(
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable("id") Integer activityId) {
+        access.activityParticipant(activityId);
 
         return ResponseEntity.ok(toResponse(activityService.findActivityById(activityId)));
     }
@@ -85,6 +92,7 @@ public class ActivityController {
     public ResponseEntity<List<ActivityResponse>> findActivitiesByUserId(
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId) {
+        access.own(userId);
 
         List<ActivityResponse> activities = activityService.findActivitiesByUserId(userId)
                 .stream()
@@ -109,6 +117,7 @@ public class ActivityController {
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable("id") Integer activityId,
             @Valid @RequestBody ConfirmationRequest request) {
+        access.own(request.userId()); access.activityParticipant(activityId);
 
         ActivityEntity activity = confirmationService.confirmActivity(
                 activityId,
@@ -128,6 +137,7 @@ public class ActivityController {
     public ResponseEntity<List<ConfirmationResponse>> findConfirmations(
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable("id") Integer activityId) {
+        access.activityParticipant(activityId);
 
         List<ConfirmationResponse> confirmations = confirmationService
                 .findConfirmationsByActivityId(activityId)
@@ -151,8 +161,35 @@ public class ActivityController {
     public ResponseEntity<ActivityResponse> cancelActivity(
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable("id") Integer activityId) {
+        access.activityParticipant(activityId);
 
         return ResponseEntity.ok(toResponse(activityService.cancelActivity(activityId)));
+    }
+
+    @GetMapping("/schedule/{proposalId}")
+    public ResponseEntity<List<com.phelti.phelti.dto.ScheduleOfferResponse>> scheduleHistory(@PathVariable Integer proposalId) {
+        return ResponseEntity.ok(schedules.history(proposalId, access.actor()));
+    }
+
+    @PostMapping("/schedule")
+    public ResponseEntity<com.phelti.phelti.dto.ScheduleOfferResponse> proposeSchedule(@Valid @RequestBody ActivityRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(schedules.propose(request, access.actor()));
+    }
+
+    @PutMapping("/schedule/{id}/accept")
+    public ResponseEntity<ActivityResponse> acceptSchedule(@PathVariable Integer id) {
+        return ResponseEntity.ok(toResponse(schedules.accept(id, access.actor())));
+    }
+
+    @PutMapping("/schedule/{id}/decline")
+    public ResponseEntity<com.phelti.phelti.dto.ScheduleOfferResponse> declineSchedule(@PathVariable Integer id) {
+        return ResponseEntity.ok(schedules.decline(id, access.actor()));
+    }
+
+    @PutMapping("/schedule/proposals/{proposalId}/cancel")
+    public ResponseEntity<Void> cancelAgreement(@PathVariable Integer proposalId) {
+        schedules.cancelAgreement(proposalId, access.actor());
+        return ResponseEntity.noContent().build();
     }
 
     private ConfirmationResponse toConfirmationResponse(ConfirmationEntity confirmation) {
@@ -180,7 +217,7 @@ public class ActivityController {
                 activity.getLocation(),
                 activity.getVirtualLink(),
                 activity.getAgreedAmount(),
-                activity.getCheckInCode(),
+                "SCHEDULED".equals(activity.getActivityStatus()) && !com.phelti.phelti.model.BusinessRules.now().isBefore(java.time.LocalDateTime.of(activity.getActivityDate(), activity.getActivityTime()).plusMinutes(activity.getDurationMinutes())) ? activity.getCheckInCode() : null,
                 activity.getActivityStatus()
         );
     }

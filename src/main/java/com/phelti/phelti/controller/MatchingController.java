@@ -23,9 +23,12 @@ import java.util.List;
 @Tag(name = "Matching", description = "Pairing of users with compatible publications")
 public class MatchingController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final MatchingService matchingService;
 
-    public MatchingController(MatchingService matchingService) {
+    public MatchingController(com.phelti.phelti.config.DemoAccess access, MatchingService matchingService) {
+        this.access = access;
         this.matchingService = matchingService;
     }
 
@@ -41,6 +44,7 @@ public class MatchingController {
     public ResponseEntity<List<PublicationMatchResponse>> findMatches(
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId) {
+        access.own(userId);
 
         List<PublicationMatchResponse> matches = matchingService.findMatchesForUser(userId)
                 .stream()
@@ -72,8 +76,7 @@ public class MatchingController {
                 publication.getPheltAmount(),
                 publication.isNegotiable(),
                 publication.getPublicationStatus(),
-                publication.getDurationMinutes(),
-                publication.getScheduledAt()
+                publication.getDurationMinutes()
         );
     }
 }

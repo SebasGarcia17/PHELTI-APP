@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import com.phelti.phelti.model.BusinessRules;
 import java.util.List;
 
 @Service
@@ -20,19 +21,23 @@ public class ProposalServiceImpl implements ProposalService {
 
     private final ProposalRepository proposalRepository;
     private final PublicationService publicationService;
+    private final WalletService walletService;
 
     public ProposalServiceImpl(
             ProposalRepository proposalRepository,
-            PublicationService publicationService) {
+            PublicationService publicationService, WalletService walletService) {
+        this.walletService = walletService;
 
         this.proposalRepository = proposalRepository;
         this.publicationService = publicationService;
     }
 
     @Override
+    @Transactional
     public Proposal createProposal(Proposal proposal) {
 
         validateProposal(proposal);
+        publicationService.lockPublication(proposal.getPublicationId());
 
         Publication publication =
                 publicationService.findPublicationById(
@@ -43,18 +48,20 @@ public class ProposalServiceImpl implements ProposalService {
                 .equals(publication.getPublicationStatus())) {
 
             throw new InvalidProposalDataException(
-                    "publication is not available for proposals"
+                    "La publicación ya no recibe propuestas."
             );
         }
 
         if (proposal.getProposingUserId().equals(publication.getUserId())) {
             throw new InvalidProposalDataException(
-                    "a user cannot propose on their own publication"
+                    "No puedes enviar propuestas a tu propia publicación."
             );
         }
 
         ensureNoActiveProposalFromUser(proposal);
         validateProposedAmount(proposal, publication);
+        if (proposal.getProposedAmount() == null) proposal.setProposedAmount(publication.getPheltAmount());
+        validateBalance(proposal, publication);
 
         proposal.setProposalStatus(
                 ProposalStatus.PENDING.name()
@@ -83,15 +90,22 @@ public class ProposalServiceImpl implements ProposalService {
     public Proposal acceptProposal(Integer proposalId) {
 
         Proposal proposal = findProposalById(proposalId);
+        publicationService.lockPublication(proposal.getPublicationId());
+        proposal = findProposalById(proposalId);
 
         if (!ProposalStatus.PENDING.name()
                 .equals(proposal.getProposalStatus())) {
 
             throw new InvalidProposalDataException(
-                    "only pending proposals can be accepted"
+                    "Solo se pueden aceptar propuestas pendientes."
             );
         }
 
+        Publication publication = publicationService.findPublicationById(proposal.getPublicationId());
+        if (!PublicationStatus.PUBLISHED.name().equals(publication.getPublicationStatus())) {
+            throw new InvalidProposalDataException("La publicación ya no está disponible.");
+        }
+        validateBalance(proposal, publication);
         proposalRepository.updateProposalStatus(
                 proposalId,
                 ProposalStatus.ACCEPTED.name()
@@ -116,12 +130,14 @@ public class ProposalServiceImpl implements ProposalService {
     public Proposal rejectProposal(Integer proposalId) {
 
         Proposal proposal = findProposalById(proposalId);
+        publicationService.lockPublication(proposal.getPublicationId());
+        proposal = findProposalById(proposalId);
 
         if (!ProposalStatus.PENDING.name()
                 .equals(proposal.getProposalStatus())) {
 
             throw new InvalidProposalDataException(
-                    "only pending proposals can be rejected"
+                    "Solo se pueden rechazar propuestas pendientes."
             );
         }
 
@@ -147,7 +163,7 @@ public class ProposalServiceImpl implements ProposalService {
                 .equals(proposal.getProposalStatus())) {
 
             throw new InvalidProposalDataException(
-                    "only accepted proposals can be cancelled"
+                    "Solo se pueden cancelar propuestas aceptadas."
             );
         }
 
@@ -167,9 +183,13 @@ public class ProposalServiceImpl implements ProposalService {
     @Transactional
     public void deleteProposal(Integer proposalId) {
 
-        findProposalById(proposalId);
-
-        proposalRepository.deleteProposal(proposalId);
+        Proposal proposal = findProposalById(proposalId);
+        publicationService.lockPublication(proposal.getPublicationId());
+        proposal = findProposalById(proposalId);
+        if (!ProposalStatus.PENDING.name().equals(proposal.getProposalStatus())) {
+            throw new InvalidProposalDataException("Solo se pueden retirar propuestas pendientes.");
+        }
+        proposalRepository.updateProposalStatus(proposalId, ProposalStatus.WITHDRAWN.name());
     }
 
     private void ensureNoActiveProposalFromUser(Proposal proposal) {
@@ -227,16 +247,25 @@ public class ProposalServiceImpl implements ProposalService {
             return;
         }
 
-        if (proposedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (!BusinessRules.validAmount(proposedAmount)) {
             throw new InvalidProposalDataException(
-                    "proposedAmount must be greater than zero"
+                    "El importe propuesto debe ser positivo y tener hasta dos decimales."
             );
         }
 
         if (!publication.isNegotiable()) {
             throw new InvalidProposalDataException(
-                    "the publication is not negotiable, proposedAmount is not allowed"
+                    "Esta publicación tiene un precio fijo."
             );
+        }
+    }
+
+    private void validateBalance(Proposal proposal, Publication publication) {
+        Integer payer = com.phelti.phelti.model.PublicationType.OFFERS_SUPPORT.name().equals(publication.getPublicationType())
+                ? proposal.getProposingUserId() : publication.getUserId();
+        BigDecimal amount = proposal.getProposedAmount() != null ? proposal.getProposedAmount() : publication.getPheltAmount();
+        if (walletService.findWalletByUserId(payer).getAvailableBalance().compareTo(amount) < 0) {
+            throw new com.phelti.phelti.exception.InsufficientBalanceException(payer);
         }
     }
 
@@ -244,13 +273,13 @@ public class ProposalServiceImpl implements ProposalService {
 
         if (proposal.getPublicationId() == null) {
             throw new InvalidProposalDataException(
-                    "publicationId is required"
+                    "Selecciona una publicación."
             );
         }
 
         if (proposal.getProposingUserId() == null) {
             throw new InvalidProposalDataException(
-                    "proposingUserId is required"
+                    "Identifica a la persona que envía la propuesta."
             );
         }
 
@@ -258,7 +287,7 @@ public class ProposalServiceImpl implements ProposalService {
                 && proposal.getMessage().length() > 500) {
 
             throw new InvalidProposalDataException(
-                    "message must be at most 500 characters"
+                    "El mensaje admite hasta 500 caracteres."
             );
         }
     }

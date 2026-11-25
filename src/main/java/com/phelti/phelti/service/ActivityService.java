@@ -9,7 +9,11 @@ public interface ActivityService {
 
     ActivityEntity createActivity(ActivityRequest request);
 
+    void validateDraft(ActivityRequest request);
+
     ActivityEntity findActivityById(Integer activityId);
+
+    ActivityEntity lockActivity(Integer activityId);
 
     List<ActivityEntity> findActivitiesByUserId(Integer userId);
 

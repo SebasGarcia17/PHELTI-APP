@@ -1,6 +1,5 @@
 package com.phelti.phelti.controller;
 
-import com.phelti.phelti.dto.InterestRequest;
 import com.phelti.phelti.dto.InterestResponse;
 import com.phelti.phelti.entity.InterestEntity;
 import com.phelti.phelti.service.InterestService;
@@ -9,15 +8,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,25 +23,13 @@ import java.util.List;
 @Tag(name = "Interests", description = "Interests of the users, used for search and matching")
 public class InterestController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final InterestService interestService;
 
-    public InterestController(InterestService interestService) {
+    public InterestController(com.phelti.phelti.config.DemoAccess access, InterestService interestService) {
+        this.access = access;
         this.interestService = interestService;
-    }
-
-    @Operation(summary = "Create a interest in the catalog")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Interest created"),
-            @ApiResponse(responseCode = "400", description = "Invalid interest data"),
-            @ApiResponse(responseCode = "409", description = "Interest already exists")
-    })
-    @PostMapping("/interests")
-    public ResponseEntity<InterestResponse> createInterest(
-            @Valid @RequestBody InterestRequest request) {
-
-        InterestEntity interest = interestService.createInterest(request.name());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(interest));
     }
 
     @Operation(summary = "List the interests of the catalog")
@@ -84,6 +67,7 @@ public class InterestController {
             @PathVariable Integer userId,
             @Parameter(description = "Interest identifier", example = "1")
             @PathVariable Integer interestId) {
+        access.own(userId);
 
         interestService.addInterestToUser(userId, interestId);
 
@@ -101,6 +85,7 @@ public class InterestController {
             @PathVariable Integer userId,
             @Parameter(description = "Interest identifier", example = "1")
             @PathVariable Integer interestId) {
+        access.own(userId);
 
         interestService.removeInterestFromUser(userId, interestId);
 

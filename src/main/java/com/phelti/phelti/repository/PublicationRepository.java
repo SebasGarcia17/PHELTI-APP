@@ -19,4 +19,10 @@ public interface PublicationRepository {
     Publication updatePublication(Integer publicationId, Publication publication);
 
     void deletePublication(Integer publicationId);
+
+    void lockPublication(Integer publicationId);
+
+    void rejectPendingProposals(Integer publicationId);
+
+    boolean hasPendingProposals(Integer publicationId);
 }

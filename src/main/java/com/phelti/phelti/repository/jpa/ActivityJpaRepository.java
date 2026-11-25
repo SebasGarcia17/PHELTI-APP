@@ -15,6 +15,10 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Int
     @EntityGraph(attributePaths = {"requester", "participant"})
     Optional<ActivityEntity> findById(Integer activityId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM ActivityEntity a WHERE a.activityId = :id")
+    Optional<ActivityEntity> findForUpdate(@Param("id") Integer id);
+
     boolean existsByProposalId(Integer proposalId);
 
     @Query("""

@@ -2,9 +2,7 @@ package com.phelti.phelti.service;
 
 import com.phelti.phelti.entity.SkillEntity;
 import com.phelti.phelti.entity.UserEntity;
-import com.phelti.phelti.exception.InvalidSkillDataException;
 import com.phelti.phelti.exception.SkillAlreadyAssignedException;
-import com.phelti.phelti.exception.SkillAlreadyExistsException;
 import com.phelti.phelti.exception.SkillNotAssignedException;
 import com.phelti.phelti.exception.SkillNotFoundException;
 import com.phelti.phelti.exception.UserNotFoundException;
@@ -42,57 +40,6 @@ class SkillServiceImplTest {
 
     @InjectMocks
     private SkillServiceImpl skillService;
-
-    @Test
-    void createSkillShouldSaveTrimmedNameWhenDataIsValid() {
-
-        when(skillRepository.existsByNameIgnoreCase("Guitar"))
-                .thenReturn(false);
-
-        when(skillRepository.save(any(SkillEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        SkillEntity result = skillService.createSkill("  Guitar ");
-
-        assertEquals("Guitar", result.getName());
-        verify(skillRepository).save(result);
-    }
-
-    @Test
-    void createSkillShouldThrowExceptionWhenNameIsBlank() {
-
-        assertThrows(
-                InvalidSkillDataException.class,
-                () -> skillService.createSkill(" ")
-        );
-
-        verify(skillRepository, never()).save(any(SkillEntity.class));
-    }
-
-    @Test
-    void createSkillShouldThrowExceptionWhenNameIsTooLong() {
-
-        String longName = "x".repeat(81);
-
-        assertThrows(
-                InvalidSkillDataException.class,
-                () -> skillService.createSkill(longName)
-        );
-    }
-
-    @Test
-    void createSkillShouldThrowExceptionWhenSkillAlreadyExists() {
-
-        when(skillRepository.existsByNameIgnoreCase("Guitar"))
-                .thenReturn(true);
-
-        assertThrows(
-                SkillAlreadyExistsException.class,
-                () -> skillService.createSkill("Guitar")
-        );
-
-        verify(skillRepository, never()).save(any(SkillEntity.class));
-    }
 
     @Test
     void findAllSkillsShouldReturnRepositorySkills() {

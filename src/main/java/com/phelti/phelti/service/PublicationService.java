@@ -20,4 +20,6 @@ public interface PublicationService {
     Publication changePublicationStatus(Integer publicationId, String status);
 
     void deletePublication(Integer publicationId);
+
+    void lockPublication(Integer publicationId);
 }

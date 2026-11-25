@@ -40,7 +40,9 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         String day = parseDayOfWeek(dayOfWeek);
         validateTimes(startTime, endTime);
+        if (startTime.getSecond() != 0 || startTime.getNano() != 0 || endTime.getSecond() != 0 || endTime.getNano() != 0) throw new InvalidAvailabilityDataException("Indica los horarios con precisión de minutos.");
 
+        userRepository.lockParticipants(List.of(userId));
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -77,20 +79,21 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         AvailabilityEntity availability = availabilityRepository.findById(availabilityId)
                 .orElseThrow(() -> new AvailabilityNotFoundException(availabilityId));
 
+        userRepository.lockParticipants(List.of(availability.getUser().getUserId()));
         availabilityRepository.delete(availability);
     }
 
     private String parseDayOfWeek(String value) {
 
         if (value == null || value.isBlank()) {
-            throw new InvalidAvailabilityDataException("dayOfWeek is required");
+            throw new InvalidAvailabilityDataException("Selecciona un día de la semana.");
         }
 
         try {
             return DayOfWeek.valueOf(value.trim().toUpperCase()).name();
         } catch (IllegalArgumentException exception) {
             throw new InvalidAvailabilityDataException(
-                    "dayOfWeek must be a day such as MONDAY or FRIDAY"
+                    "Selecciona un día de la semana válido."
             );
         }
     }
@@ -99,13 +102,13 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         if (startTime == null || endTime == null) {
             throw new InvalidAvailabilityDataException(
-                    "startTime and endTime are required"
+                    "Indica las horas de inicio y finalización."
             );
         }
 
         if (!endTime.isAfter(startTime)) {
             throw new InvalidAvailabilityDataException(
-                    "endTime must be after startTime"
+                    "La hora final debe ser posterior a la inicial."
             );
         }
     }
@@ -124,7 +127,7 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         if (overlaps) {
             throw new AvailabilityOverlapException(
-                    "the time slot overlaps an existing availability on " + day
+                    "Este horario se solapa con otro intervalo de disponibilidad."
             );
         }
     }

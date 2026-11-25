@@ -50,7 +50,7 @@ class ConfirmationServiceImplTest {
 
         ActivityEntity activity = createActivity(ActivityStatus.SCHEDULED);
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(activity);
 
         when(confirmationRepository.existsByActivityActivityIdAndUserUserId(1, 2))
@@ -81,7 +81,7 @@ class ConfirmationServiceImplTest {
         ActivityEntity activity = createActivity(ActivityStatus.SCHEDULED);
         ActivityEntity completed = createActivity(ActivityStatus.COMPLETED);
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(activity);
 
         when(confirmationRepository.existsByActivityActivityIdAndUserUserId(1, 1))
@@ -120,7 +120,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenActivityDoesNotExist() {
 
-        when(activityService.findActivityById(9))
+        when(activityService.lockActivity(9))
                 .thenThrow(new ActivityNotFoundException(9));
 
         assertThrows(
@@ -132,7 +132,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenActivityIsNotScheduled() {
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(createActivity(ActivityStatus.COMPLETED));
 
         assertThrows(
@@ -146,7 +146,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenUserIsNotPartOfTheActivity() {
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(createActivity(ActivityStatus.SCHEDULED));
 
         assertThrows(
@@ -160,7 +160,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenCheckInCodeDoesNotMatch() {
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(createActivity(ActivityStatus.SCHEDULED));
 
         assertThrows(
@@ -174,7 +174,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenCheckInCodeIsMissing() {
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(createActivity(ActivityStatus.SCHEDULED));
 
         assertThrows(
@@ -186,7 +186,7 @@ class ConfirmationServiceImplTest {
     @Test
     void confirmActivityShouldThrowExceptionWhenUserAlreadyConfirmed() {
 
-        when(activityService.findActivityById(1))
+        when(activityService.lockActivity(1))
                 .thenReturn(createActivity(ActivityStatus.SCHEDULED));
 
         when(confirmationRepository.existsByActivityActivityIdAndUserUserId(1, 1))
@@ -228,6 +228,15 @@ class ConfirmationServiceImplTest {
         verify(confirmationRepository, never()).findByActivityId(any());
     }
 
+    @Test
+    void cannotConfirmBeforeEndOfActivity() {
+        ActivityEntity activity = createActivity(ActivityStatus.SCHEDULED);
+        activity.setActivityDate(com.phelti.phelti.model.BusinessRules.now().toLocalDate().plusDays(1));
+        when(activityService.lockActivity(1)).thenReturn(activity);
+        assertThrows(InvalidConfirmationException.class, () -> confirmationService.confirmActivity(1, 1, CODE));
+        verify(confirmationRepository, never()).save(any());
+    }
+
     private ActivityEntity createActivity(ActivityStatus status) {
 
         UserEntity requester = new UserEntity();
@@ -242,6 +251,9 @@ class ConfirmationServiceImplTest {
         activity.setParticipant(participant);
         activity.setCheckInCode(CODE);
         activity.setActivityStatus(status.name());
+        activity.setActivityDate(com.phelti.phelti.model.BusinessRules.now().toLocalDate().minusDays(1));
+        activity.setActivityTime(java.time.LocalTime.of(10,0));
+        activity.setDurationMinutes(60);
 
         return activity;
     }

@@ -29,9 +29,12 @@ import java.util.List;
 @Tag(name = "Users", description = "Operations for platform users")
 public class UserController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final UserService userService;
 
-    public UserController(UserService userService) {
+    public UserController(com.phelti.phelti.config.DemoAccess access, UserService userService) {
+        this.access = access;
         this.userService = userService;
     }
 
@@ -43,6 +46,7 @@ public class UserController {
     })
     @PostMapping
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserRequest request) {
+        access.requireGateway();
 
         UserEntity user = userService.createUser(
                 request.name(),
@@ -94,6 +98,7 @@ public class UserController {
             @Parameter(description = "User identifier", example = "1")
             @PathVariable("id") Integer userId,
             @Valid @RequestBody ProfileUpdateRequest request) {
+        access.own(userId);
 
         UserEntity user = userService.updateUserProfile(
                 userId,
@@ -139,7 +144,7 @@ public class UserController {
         return new UserResponse(
                 user.getUserId(),
                 user.getName(),
-                user.getEmail(),
+                user.getUserId().equals(access.optionalActor()) ? user.getEmail() : null,
                 user.getDescription(),
                 user.getAverageRating(),
                 user.getLocation(),

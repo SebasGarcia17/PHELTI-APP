@@ -7,7 +7,5 @@ import java.util.List;
 
 public interface InterestJpaRepository extends JpaRepository<InterestEntity, Integer> {
 
-    boolean existsByNameIgnoreCase(String name);
-
     List<InterestEntity> findAllByOrderByNameAsc();
 }

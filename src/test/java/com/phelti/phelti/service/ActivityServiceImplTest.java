@@ -62,6 +62,9 @@ class ActivityServiceImplTest {
     @Mock
     private WalletService walletService;
 
+    @org.mockito.Mock
+    private com.phelti.phelti.repository.jpa.ConfirmationJpaRepository confirmationRepository;
+
     @InjectMocks
     private ActivityServiceImpl activityService;
 
@@ -167,7 +170,7 @@ class ActivityServiceImplTest {
     void createActivityShouldThrowExceptionWhenDateIsInThePast() {
 
         ActivityRequest request = new ActivityRequest(
-                1, LocalDate.now().minusDays(1), LocalTime.of(15, 30), 60, "Library", null
+                1, com.phelti.phelti.model.BusinessRules.now().toLocalDate().minusDays(1), LocalTime.of(15, 30), 60, "Library", null
         );
 
         assertThrows(
@@ -332,7 +335,7 @@ class ActivityServiceImplTest {
 
         ActivityEntity activity = createScheduledActivity();
 
-        when(activityRepository.findById(1))
+        when(activityRepository.findForUpdate(1))
                 .thenReturn(Optional.of(activity));
 
         when(activityRepository.save(activity))
@@ -352,7 +355,7 @@ class ActivityServiceImplTest {
 
         ActivityEntity activity = createScheduledActivity();
 
-        when(activityRepository.findById(1))
+        when(activityRepository.findForUpdate(1))
                 .thenReturn(Optional.of(activity));
 
         assertThrows(
@@ -370,7 +373,7 @@ class ActivityServiceImplTest {
         ActivityEntity activity = createScheduledActivity();
         activity.setActivityStatus(ActivityStatus.CANCELLED.name());
 
-        when(activityRepository.findById(1))
+        when(activityRepository.findForUpdate(1))
                 .thenReturn(Optional.of(activity));
 
         assertThrows(
@@ -384,7 +387,7 @@ class ActivityServiceImplTest {
     @Test
     void completeActivityShouldThrowExceptionWhenActivityDoesNotExist() {
 
-        when(activityRepository.findById(999))
+        when(activityRepository.findForUpdate(999))
                 .thenReturn(Optional.empty());
 
         assertThrows(
@@ -398,7 +401,7 @@ class ActivityServiceImplTest {
 
         ActivityEntity activity = createScheduledActivity();
 
-        when(activityRepository.findById(1))
+        when(activityRepository.findForUpdate(1))
                 .thenReturn(Optional.of(activity));
 
         when(activityRepository.save(activity))
@@ -420,7 +423,7 @@ class ActivityServiceImplTest {
         ActivityEntity activity = createScheduledActivity();
         activity.setActivityStatus(ActivityStatus.COMPLETED.name());
 
-        when(activityRepository.findById(1))
+        when(activityRepository.findForUpdate(1))
                 .thenReturn(Optional.of(activity));
 
         assertThrows(
@@ -537,6 +540,6 @@ class ActivityServiceImplTest {
 
     private LocalDate futureDate() {
 
-        return LocalDate.now().plusDays(3);
+        return com.phelti.phelti.model.BusinessRules.now().toLocalDate().plusDays(3);
     }
 }

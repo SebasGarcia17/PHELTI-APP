@@ -39,6 +39,9 @@ class ProposalServiceImplTest {
     @Mock
     private PublicationService publicationService;
 
+    @Mock
+    private WalletService walletService;
+
     @InjectMocks
     private ProposalServiceImpl proposalService;
 
@@ -48,6 +51,12 @@ class ProposalServiceImplTest {
         Proposal proposal = createValidProposal();
 
         Publication publication = new Publication();
+        publication.setUserId(1);
+        publication.setPublicationType("OFFERS_SUPPORT");
+        publication.setPheltAmount(new BigDecimal("20.00"));
+        var wallet = new com.phelti.phelti.entity.WalletEntity();
+        wallet.setAvailableBalance(new BigDecimal("100.00"));
+        when(walletService.findWalletByUserId(2)).thenReturn(wallet);
         publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
 
         when(publicationService.findPublicationById(1))
@@ -194,6 +203,15 @@ class ProposalServiceImplTest {
     @Test
     void acceptProposalShouldAcceptPendingProposal() {
 
+        Publication publication = new Publication();
+        publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
+        publication.setPublicationType("OFFERS_SUPPORT");
+        publication.setUserId(1);
+        publication.setPheltAmount(new BigDecimal("20.00"));
+        when(publicationService.findPublicationById(1)).thenReturn(publication);
+        var wallet = new com.phelti.phelti.entity.WalletEntity();
+        wallet.setAvailableBalance(new BigDecimal("100.00"));
+        when(walletService.findWalletByUserId(2)).thenReturn(wallet);
         Proposal acceptedProposal = createValidProposal();
         acceptedProposal.setProposalId(1);
         acceptedProposal.setProposalStatus(
@@ -366,10 +384,11 @@ class ProposalServiceImplTest {
     }
 
     @Test
-    void deleteProposalShouldDeleteProposalWhenItExists() {
+    void deleteProposalShouldWithdrawPendingProposal() {
 
         Proposal proposal = createValidProposal();
         proposal.setProposalId(1);
+        proposal.setProposalStatus(ProposalStatus.PENDING.name());
 
         when(proposalRepository.findProposalById(1))
                 .thenReturn(Optional.of(proposal));
@@ -377,7 +396,7 @@ class ProposalServiceImplTest {
         proposalService.deleteProposal(1);
 
         verify(proposalRepository)
-                .deleteProposal(1);
+                .updateProposalStatus(1, ProposalStatus.WITHDRAWN.name());
     }
 
     @Test
@@ -442,6 +461,12 @@ class ProposalServiceImplTest {
         proposal.setProposedAmount(new BigDecimal("15.00"));
 
         Publication publication = new Publication();
+        publication.setUserId(1);
+        publication.setPublicationType("OFFERS_SUPPORT");
+        publication.setPheltAmount(new BigDecimal("20.00"));
+        var wallet = new com.phelti.phelti.entity.WalletEntity();
+        wallet.setAvailableBalance(new BigDecimal("100.00"));
+        when(walletService.findWalletByUserId(2)).thenReturn(wallet);
         publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
         publication.setNegotiable(true);
 
@@ -531,6 +556,12 @@ class ProposalServiceImplTest {
         Proposal proposal = createValidProposal();
 
         Publication publication = new Publication();
+        publication.setUserId(1);
+        publication.setPublicationType("OFFERS_SUPPORT");
+        publication.setPheltAmount(new BigDecimal("20.00"));
+        var wallet = new com.phelti.phelti.entity.WalletEntity();
+        wallet.setAvailableBalance(new BigDecimal("100.00"));
+        when(walletService.findWalletByUserId(2)).thenReturn(wallet);
         publication.setPublicationStatus(PublicationStatus.PUBLISHED.name());
 
         Proposal rejected = createValidProposal();
