@@ -8,7 +8,6 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +16,21 @@ import java.util.Optional;
 public class JdbcPublicationRepository implements PublicationRepository {
 
     private final JdbcTemplate jdbcTemplate;
+
+    @Override
+    public void lockPublication(Integer publicationId) {
+        jdbcTemplate.queryForList("SELECT id_publicacion FROM publicacion WHERE id_publicacion = ? FOR UPDATE", Integer.class, publicationId);
+    }
+
+    @Override
+    public boolean hasPendingProposals(Integer publicationId) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject("SELECT EXISTS (SELECT 1 FROM propuesta WHERE id_publicacion = ? AND estado = 'PENDING')", Boolean.class, publicationId));
+    }
+
+    @Override
+    public void rejectPendingProposals(Integer publicationId) {
+        jdbcTemplate.update("UPDATE propuesta SET estado = 'REJECTED' WHERE id_publicacion = ? AND estado = 'PENDING'", publicationId);
+    }
 
     public JdbcPublicationRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -37,8 +51,7 @@ public class JdbcPublicationRepository implements PublicationRepository {
                     valor_tiempo,
                     negociable,
                     estado,
-                    duracion,
-                    fecha_hora
+                    duracion
                 FROM publicacion
                 """;
 
@@ -60,8 +73,7 @@ public class JdbcPublicationRepository implements PublicationRepository {
                     valor_tiempo,
                     negociable,
                     estado,
-                    duracion,
-                    fecha_hora
+                    duracion
                 FROM publicacion
                 WHERE estado = ?
                 """);
@@ -90,10 +102,9 @@ public class JdbcPublicationRepository implements PublicationRepository {
         }
 
         if (filter.keyword() != null) {
-            sql.append(" AND (LOWER(titulo) LIKE ? OR LOWER(descripcion) LIKE ?)");
-            String pattern = "%" + filter.keyword().toLowerCase() + "%";
-            parameters.add(pattern);
-            parameters.add(pattern);
+            sql.append(" AND (strpos(LOWER(titulo), LOWER(?)) > 0 OR strpos(LOWER(descripcion), LOWER(?)) > 0)");
+            parameters.add(filter.keyword());
+            parameters.add(filter.keyword());
         }
 
         sql.append(" ORDER BY id_publicacion DESC");
@@ -116,8 +127,7 @@ public Optional<Publication> findPublicationById(Integer publicationId) {
                 valor_tiempo,
                 negociable,
                 estado,
-                duracion,
-                fecha_hora
+                duracion
             FROM publicacion
             WHERE id_publicacion = ?
             """;
@@ -142,10 +152,9 @@ public Publication createPublication(Publication publication) {
                 valor_tiempo,
                 negociable,
                 estado,
-                duracion,
-                fecha_hora
+                duracion
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id_publicacion
             """;
 
@@ -161,8 +170,7 @@ public Publication createPublication(Publication publication) {
             publication.getPheltAmount(),
             publication.isNegotiable(),
             publication.getPublicationStatus(),
-            publication.getDurationMinutes(),
-            publication.getScheduledAt() == null ? null : Timestamp.valueOf(publication.getScheduledAt())
+            publication.getDurationMinutes()
     );
 
     publication.setPublicationId(generatedId);
@@ -185,8 +193,7 @@ public Publication updatePublication(Integer publicationId, Publication publicat
                 valor_tiempo = ?,
                 negociable = ?,
                 estado = ?,
-                duracion = ?,
-                fecha_hora = ?
+                duracion = ?
             WHERE id_publicacion = ?
             """;
 
@@ -202,7 +209,6 @@ public Publication updatePublication(Integer publicationId, Publication publicat
             publication.isNegotiable(),
             publication.getPublicationStatus(),
             publication.getDurationMinutes(),
-            publication.getScheduledAt() == null ? null : Timestamp.valueOf(publication.getScheduledAt()),
             publicationId
     );
 
@@ -240,8 +246,6 @@ public void deletePublication(Integer publicationId) {
         publication.setPublicationStatus(resultSet.getString("estado"));
         publication.setDurationMinutes(resultSet.getObject("duracion", Integer.class));
 
-        Timestamp scheduledAt = resultSet.getTimestamp("fecha_hora");
-        publication.setScheduledAt(scheduledAt == null ? null : scheduledAt.toLocalDateTime());
 
         return publication;
     }

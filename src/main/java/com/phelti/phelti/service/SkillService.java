@@ -6,8 +6,6 @@ import java.util.List;
 
 public interface SkillService {
 
-    SkillEntity createSkill(String name);
-
     List<SkillEntity> findAllSkills();
 
     List<SkillEntity> findSkillsByUserId(Integer userId);

@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -70,6 +69,7 @@ public class WalletServiceImpl implements WalletService {
         validatePositiveAmount(amount);
 
         WalletEntity wallet = findWalletForUpdate(userId);
+        if (!com.phelti.phelti.model.BusinessRules.validBalance(wallet.getAvailableBalance().add(wallet.getReservedBalance()).add(amount))) throw new InvalidWalletOperationException("El saldo total supera el límite de la billetera.");
         wallet.setAvailableBalance(wallet.getAvailableBalance().add(amount));
 
         WalletEntity saved = walletRepository.save(wallet);
@@ -78,7 +78,7 @@ public class WalletServiceImpl implements WalletService {
                 wallet,
                 TransactionType.DEPOSIT,
                 amount,
-                "Phelts deposited into the wallet",
+                "Depósito de phelts en la billetera",
                 null,
                 null,
                 null
@@ -117,7 +117,7 @@ public class WalletServiceImpl implements WalletService {
                 wallet,
                 TransactionType.RESERVE,
                 amount,
-                "Phelts reserved for a scheduled activity",
+                "Reserva para una actividad programada",
                 activityId,
                 null,
                 null
@@ -142,7 +142,7 @@ public class WalletServiceImpl implements WalletService {
                 wallet,
                 TransactionType.RELEASE,
                 amount,
-                "Reserved phelts released back to the available balance",
+                "Liberación de phelts al saldo disponible",
                 activityId,
                 null,
                 null
@@ -161,12 +161,15 @@ public class WalletServiceImpl implements WalletService {
 
         if (fromUserId.equals(toUserId)) {
             throw new InvalidWalletOperationException(
-                    "source and destination wallets must be different"
+                    "Las billeteras de origen y destino deben ser distintas."
             );
         }
 
-        WalletEntity source = findWalletForUpdate(fromUserId);
-        WalletEntity destination = findWalletForUpdate(toUserId);
+        WalletEntity first = findWalletForUpdate(Math.min(fromUserId, toUserId));
+        WalletEntity second = findWalletForUpdate(Math.max(fromUserId, toUserId));
+        WalletEntity source = fromUserId < toUserId ? first : second;
+        WalletEntity destination = fromUserId < toUserId ? second : first;
+        if (!com.phelti.phelti.model.BusinessRules.validBalance(destination.getAvailableBalance().add(destination.getReservedBalance()).add(amount))) throw new InvalidWalletOperationException("La billetera receptora supera el límite de saldo.");
         ensureReservedBalance(source, amount);
 
         source.setReservedBalance(source.getReservedBalance().subtract(amount));
@@ -179,7 +182,7 @@ public class WalletServiceImpl implements WalletService {
                 source,
                 TransactionType.TRANSFER_OUT,
                 amount,
-                "Phelts paid to user " + toUserId + " for a completed activity",
+                "Pago por una actividad completada",
                 activityId,
                 fromUserId,
                 toUserId
@@ -189,7 +192,7 @@ public class WalletServiceImpl implements WalletService {
                 destination,
                 TransactionType.TRANSFER_IN,
                 amount,
-                "Phelts received from user " + fromUserId + " for a completed activity",
+                "Recepción por una actividad completada",
                 activityId,
                 fromUserId,
                 toUserId
@@ -210,7 +213,7 @@ public class WalletServiceImpl implements WalletService {
         transaction.setTransactionType(type.name());
         transaction.setAmount(amount);
         transaction.setDescription(description);
-        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setCreatedAt(com.phelti.phelti.model.BusinessRules.now());
         transaction.setActivityId(activityId);
         transaction.setOriginUserId(originUserId);
         transaction.setDestinationUserId(destinationUserId);
@@ -226,9 +229,9 @@ public class WalletServiceImpl implements WalletService {
 
     private void validatePositiveAmount(BigDecimal amount) {
 
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (!com.phelti.phelti.model.BusinessRules.validAmount(amount)) {
             throw new InvalidWalletOperationException(
-                    "amount must be greater than zero"
+                    "El importe debe ser positivo y tener hasta dos decimales."
             );
         }
     }
@@ -237,7 +240,7 @@ public class WalletServiceImpl implements WalletService {
 
         if (wallet.getReservedBalance().compareTo(amount) < 0) {
             throw new InvalidWalletOperationException(
-                    "reserved balance is lower than the requested amount"
+                    "El saldo reservado es insuficiente para esta operación."
             );
         }
     }

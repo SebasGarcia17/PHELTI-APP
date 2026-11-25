@@ -39,21 +39,24 @@ public class ConfirmationServiceImpl implements ConfirmationService {
             String checkInCode) {
 
         if (userId == null) {
-            throw new InvalidConfirmationException("userId is required");
+            throw new InvalidConfirmationException("Selecciona un usuario.");
         }
 
-        ActivityEntity activity = activityService.findActivityById(activityId);
+        ActivityEntity activity = activityService.lockActivity(activityId);
 
         if (!ActivityStatus.SCHEDULED.name().equals(activity.getActivityStatus())) {
             throw new InvalidActivityStateException(
-                    "only scheduled activities can be confirmed"
+                    "Solo se pueden confirmar actividades programadas."
             );
         }
 
         UserEntity confirmingUser = findActivityUser(activity, userId);
+        if (com.phelti.phelti.model.BusinessRules.now().isBefore(LocalDateTime.of(activity.getActivityDate(), activity.getActivityTime()).plusMinutes(activity.getDurationMinutes()))) {
+            throw new InvalidConfirmationException("Podrás confirmar cuando termine el horario acordado.");
+        }
 
         if (checkInCode == null || !checkInCode.equals(activity.getCheckInCode())) {
-            throw new InvalidCheckInCodeException("check-in code does not match");
+            throw new InvalidCheckInCodeException("El código de confirmación no coincide.");
         }
 
         if (confirmationRepository.existsByActivityActivityIdAndUserUserId(activityId, userId)) {
@@ -63,7 +66,7 @@ public class ConfirmationServiceImpl implements ConfirmationService {
         ConfirmationEntity confirmation = new ConfirmationEntity();
         confirmation.setActivity(activity);
         confirmation.setUser(confirmingUser);
-        confirmation.setConfirmedAt(LocalDateTime.now());
+        confirmation.setConfirmedAt(com.phelti.phelti.model.BusinessRules.now());
 
         confirmationRepository.save(confirmation);
 
@@ -96,7 +99,7 @@ public class ConfirmationServiceImpl implements ConfirmationService {
         }
 
         throw new InvalidConfirmationException(
-                "only the requester or the participant can confirm the activity"
+                "Solo los participantes pueden confirmar la actividad."
         );
     }
 }

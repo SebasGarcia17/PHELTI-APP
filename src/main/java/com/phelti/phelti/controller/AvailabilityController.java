@@ -27,9 +27,12 @@ import java.util.List;
 @Tag(name = "Availability", description = "Days and hours in which a user can take part in activities")
 public class AvailabilityController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final AvailabilityService availabilityService;
 
-    public AvailabilityController(AvailabilityService availabilityService) {
+    public AvailabilityController(com.phelti.phelti.config.DemoAccess access, AvailabilityService availabilityService) {
+        this.access = access;
         this.availabilityService = availabilityService;
     }
 
@@ -48,6 +51,7 @@ public class AvailabilityController {
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId,
             @Valid @RequestBody AvailabilityRequest request) {
+        access.own(userId);
 
         AvailabilityEntity availability = availabilityService.addAvailability(
                 userId,
@@ -86,6 +90,7 @@ public class AvailabilityController {
     public ResponseEntity<Void> deleteAvailability(
             @Parameter(description = "Availability identifier", example = "1")
             @PathVariable("id") Integer availabilityId) {
+        access.availabilityOwner(availabilityId);
 
         availabilityService.deleteAvailability(availabilityId);
 

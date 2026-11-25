@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Schema(description = "Data required to create or replace a publication (offer or request for support)")
 public record PublicationRequest(
@@ -24,7 +23,9 @@ public record PublicationRequest(
         @NotBlank
         @Size(max = 150)
         String title,
-        @Schema(description = "Optional detailed description", example = "One hour of guitar basics")
+        @Schema(description = "Required detailed description", example = "One hour of guitar basics")
+        @NotBlank
+        @Size(max = 4000)
         String description,
         @Schema(description = "How the activity takes place", allowableValues = {"VIRTUAL", "PRESENTIAL"}, example = "VIRTUAL")
         @NotBlank
@@ -37,10 +38,9 @@ public record PublicationRequest(
         boolean negotiable,
         @Schema(description = "Status; defaults to PUBLISHED when omitted", allowableValues = {"PUBLISHED", "IN_PROGRESS", "COMPLETED", "CANCELLED"}, example = "PUBLISHED")
         String publicationStatus,
-        @Schema(description = "Expected duration in minutes (optional, greater than zero)", example = "60")
+        @Schema(description = "Expected duration in minutes (required, greater than zero)", example = "60")
+        @NotNull
         @Positive
-        Integer durationMinutes,
-        @Schema(description = "Proposed date and time of the activity (optional)", example = "2026-12-01T15:30:00")
-        LocalDateTime scheduledAt
+        Integer durationMinutes
 ) {
 }

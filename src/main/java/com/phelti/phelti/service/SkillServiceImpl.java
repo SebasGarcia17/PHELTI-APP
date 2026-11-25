@@ -2,9 +2,7 @@ package com.phelti.phelti.service;
 
 import com.phelti.phelti.entity.SkillEntity;
 import com.phelti.phelti.entity.UserEntity;
-import com.phelti.phelti.exception.InvalidSkillDataException;
 import com.phelti.phelti.exception.SkillAlreadyAssignedException;
-import com.phelti.phelti.exception.SkillAlreadyExistsException;
 import com.phelti.phelti.exception.SkillNotAssignedException;
 import com.phelti.phelti.exception.SkillNotFoundException;
 import com.phelti.phelti.exception.UserNotFoundException;
@@ -19,8 +17,6 @@ import java.util.List;
 @Service
 public class SkillServiceImpl implements SkillService {
 
-    private static final int MAX_NAME_LENGTH = 80;
-
     private final SkillJpaRepository skillRepository;
     private final UserJpaRepository userRepository;
 
@@ -30,32 +26,6 @@ public class SkillServiceImpl implements SkillService {
 
         this.skillRepository = skillRepository;
         this.userRepository = userRepository;
-    }
-
-    @Override
-    @Transactional
-    public SkillEntity createSkill(String name) {
-
-        if (name == null || name.isBlank()) {
-            throw new InvalidSkillDataException("name must not be empty");
-        }
-
-        String cleanName = name.trim();
-
-        if (cleanName.length() > MAX_NAME_LENGTH) {
-            throw new InvalidSkillDataException(
-                    "name must be at most " + MAX_NAME_LENGTH + " characters"
-            );
-        }
-
-        if (skillRepository.existsByNameIgnoreCase(cleanName)) {
-            throw new SkillAlreadyExistsException(cleanName);
-        }
-
-        SkillEntity skill = new SkillEntity();
-        skill.setName(cleanName);
-
-        return skillRepository.save(skill);
     }
 
     @Override

@@ -17,6 +17,7 @@ public record UserRequest(
         @Size(max = 150)
         String email,
         @Schema(description = "Optional short description of the user", example = "Guitar teacher")
+        @Size(max = 1500)
         String description
 ) {
 }

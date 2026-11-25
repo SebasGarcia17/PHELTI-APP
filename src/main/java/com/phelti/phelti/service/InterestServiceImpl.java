@@ -2,9 +2,7 @@ package com.phelti.phelti.service;
 
 import com.phelti.phelti.entity.InterestEntity;
 import com.phelti.phelti.entity.UserEntity;
-import com.phelti.phelti.exception.InvalidInterestDataException;
 import com.phelti.phelti.exception.InterestAlreadyAssignedException;
-import com.phelti.phelti.exception.InterestAlreadyExistsException;
 import com.phelti.phelti.exception.InterestNotAssignedException;
 import com.phelti.phelti.exception.InterestNotFoundException;
 import com.phelti.phelti.exception.UserNotFoundException;
@@ -19,8 +17,6 @@ import java.util.List;
 @Service
 public class InterestServiceImpl implements InterestService {
 
-    private static final int MAX_NAME_LENGTH = 80;
-
     private final InterestJpaRepository interestRepository;
     private final UserJpaRepository userRepository;
 
@@ -30,32 +26,6 @@ public class InterestServiceImpl implements InterestService {
 
         this.interestRepository = interestRepository;
         this.userRepository = userRepository;
-    }
-
-    @Override
-    @Transactional
-    public InterestEntity createInterest(String name) {
-
-        if (name == null || name.isBlank()) {
-            throw new InvalidInterestDataException("name must not be empty");
-        }
-
-        String cleanName = name.trim();
-
-        if (cleanName.length() > MAX_NAME_LENGTH) {
-            throw new InvalidInterestDataException(
-                    "name must be at most " + MAX_NAME_LENGTH + " characters"
-            );
-        }
-
-        if (interestRepository.existsByNameIgnoreCase(cleanName)) {
-            throw new InterestAlreadyExistsException(cleanName);
-        }
-
-        InterestEntity interest = new InterestEntity();
-        interest.setName(cleanName);
-
-        return interestRepository.save(interest);
     }
 
     @Override

@@ -11,6 +11,7 @@ public record ProfileUpdateRequest(
         @Size(max = 100)
         String name,
         @Schema(description = "Short description of the user", example = "Guitar teacher")
+        @Size(max = 1500)
         String description,
         @Schema(description = "City or area of the user (max 150 characters)", example = "Medellin")
         @Size(max = 150)

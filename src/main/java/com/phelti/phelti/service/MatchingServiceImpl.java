@@ -199,12 +199,17 @@ public class MatchingServiceImpl implements MatchingService {
         text.append(nullToEmpty(publication.getDescription())).append(' ');
         text.append(categoryNames.getOrDefault(publication.getCategoryId(), ""));
 
-        return text.toString().toLowerCase();
+        return normalize(text.toString());
     }
 
     private boolean appearsIn(String text, String term) {
 
-        return term != null && !term.isBlank() && text.contains(term.toLowerCase());
+        return term != null && !term.isBlank() && text.contains(normalize(term));
+    }
+
+    private String normalize(String value) {
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(java.util.Locale.ROOT);
     }
 
     private String nullToEmpty(String value) {

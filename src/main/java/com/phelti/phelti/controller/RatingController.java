@@ -26,9 +26,12 @@ import java.util.List;
 @Tag(name = "Ratings", description = "Ratings of completed activities that build the reputation of the users")
 public class RatingController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final RatingService ratingService;
 
-    public RatingController(RatingService ratingService) {
+    public RatingController(com.phelti.phelti.config.DemoAccess access, RatingService ratingService) {
+        this.access = access;
         this.ratingService = ratingService;
     }
 
@@ -45,6 +48,7 @@ public class RatingController {
     @PostMapping
     public ResponseEntity<RatingResponse> createRating(
             @Valid @RequestBody RatingRequest request) {
+        access.own(request.raterId()); access.activityParticipant(request.activityId());
 
         RatingEntity rating = ratingService.createRating(
                 request.activityId(),
@@ -78,6 +82,7 @@ public class RatingController {
     public ResponseEntity<List<RatingResponse>> findRatingsByActivityId(
             @Parameter(description = "Activity identifier", example = "1")
             @PathVariable Integer activityId) {
+        access.activityParticipant(activityId);
 
         return ResponseEntity.ok(toResponses(ratingService.findRatingsByActivityId(activityId)));
     }
