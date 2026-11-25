@@ -36,17 +36,20 @@ class UserServiceImplTest {
     @Mock
     private UserJpaRepository userRepository;
 
+    @Mock
+    private WalletService walletService;
+
     @InjectMocks
     private UserServiceImpl userService;
 
     @Test
     void createUserShouldSaveUserWithZeroRatingWhenDataIsValid() {
 
-        when(userRepository.existsByEmail("ana@example.com"))
+        when(userRepository.existsByEmailIgnoreCase("ana@example.com"))
                 .thenReturn(false);
 
         when(userRepository.save(any(UserEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> { UserEntity u = invocation.getArgument(0); u.setUserId(1); return u; });
 
         UserEntity result = userService.createUser(
                 "Ana Torres",
@@ -60,6 +63,7 @@ class UserServiceImplTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getAverageRating()));
 
         verify(userRepository).save(any(UserEntity.class));
+        verify(walletService).createWallet(1);
     }
 
     @Test
@@ -103,7 +107,7 @@ class UserServiceImplTest {
     @Test
     void createUserShouldThrowExceptionWhenEmailIsAlreadyRegistered() {
 
-        when(userRepository.existsByEmail("ana@example.com"))
+        when(userRepository.existsByEmailIgnoreCase("ana@example.com"))
                 .thenReturn(true);
 
         assertThrows(

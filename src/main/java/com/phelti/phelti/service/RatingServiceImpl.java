@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -53,7 +52,7 @@ public class RatingServiceImpl implements RatingService {
 
         if (!ActivityStatus.COMPLETED.name().equals(activity.getActivityStatus())) {
             throw new InvalidActivityStateException(
-                    "only completed activities can be rated"
+                    "Solo puedes calificar actividades completadas."
             );
         }
 
@@ -68,10 +67,11 @@ public class RatingServiceImpl implements RatingService {
             rated = activity.getRequester();
         } else {
             throw new InvalidRatingDataException(
-                    "only the requester or the participant can rate the activity"
+                    "Solo los participantes pueden calificar la actividad."
             );
         }
 
+        userRepository.lockParticipants(List.of(rated.getUserId()));
         if (ratingRepository.existsByActivityActivityIdAndRaterUserId(activityId, raterId)) {
             throw new RatingAlreadyExistsException(raterId);
         }
@@ -82,7 +82,7 @@ public class RatingServiceImpl implements RatingService {
         rating.setRated(rated);
         rating.setScore(score);
         rating.setComment(comment);
-        rating.setCreatedAt(LocalDateTime.now());
+        rating.setCreatedAt(com.phelti.phelti.model.BusinessRules.now());
 
         RatingEntity saved = ratingRepository.save(rating);
 
@@ -126,18 +126,18 @@ public class RatingServiceImpl implements RatingService {
     private void validateRatingData(Integer raterId, Integer score, String comment) {
 
         if (raterId == null) {
-            throw new InvalidRatingDataException("raterId is required");
+            throw new InvalidRatingDataException("Identifica a la persona que califica.");
         }
 
         if (score == null || score < MIN_SCORE || score > MAX_SCORE) {
             throw new InvalidRatingDataException(
-                    "score must be between " + MIN_SCORE + " and " + MAX_SCORE
+                    "La puntuación debe estar entre " + MIN_SCORE + " y " + MAX_SCORE + "."
             );
         }
 
         if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
             throw new InvalidRatingDataException(
-                    "comment must be at most " + MAX_COMMENT_LENGTH + " characters"
+                    "El comentario admite hasta " + MAX_COMMENT_LENGTH + " caracteres."
             );
         }
     }

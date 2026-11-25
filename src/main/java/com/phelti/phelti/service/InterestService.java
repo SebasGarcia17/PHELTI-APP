@@ -6,8 +6,6 @@ import java.util.List;
 
 public interface InterestService {
 
-    InterestEntity createInterest(String name);
-
     List<InterestEntity> findAllInterests();
 
     List<InterestEntity> findInterestsByUserId(Integer userId);

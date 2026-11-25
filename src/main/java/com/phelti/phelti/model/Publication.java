@@ -1,7 +1,6 @@
 package com.phelti.phelti.model;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 public class Publication {
     private Integer publicationId;
@@ -15,7 +14,6 @@ public class Publication {
     private boolean negotiable;
     private String publicationStatus;
     private Integer durationMinutes;
-    private LocalDateTime scheduledAt;
 
     public Integer getPublicationId() {
         return publicationId;
@@ -103,13 +101,5 @@ public class Publication {
 
     public void setDurationMinutes(Integer durationMinutes) {
         this.durationMinutes = durationMinutes;
-    }
-
-    public LocalDateTime getScheduledAt() {
-        return scheduledAt;
-    }
-
-    public void setScheduledAt(LocalDateTime scheduledAt) {
-        this.scheduledAt = scheduledAt;
     }
 }

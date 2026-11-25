@@ -1,7 +1,6 @@
 package com.phelti.phelti.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -16,7 +15,6 @@ public record ActivityRequest(
         Integer proposalId,
         @Schema(description = "Day of the activity, not in the past", example = "2026-11-20")
         @NotNull
-        @FutureOrPresent
         LocalDate activityDate,
         @Schema(description = "Start time", example = "15:30:00")
         @NotNull

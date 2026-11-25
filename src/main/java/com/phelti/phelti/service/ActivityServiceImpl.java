@@ -22,9 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import com.phelti.phelti.model.BusinessRules;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class ActivityServiceImpl implements ActivityService {
@@ -37,19 +37,32 @@ public class ActivityServiceImpl implements ActivityService {
     private final ProposalService proposalService;
     private final PublicationService publicationService;
     private final WalletService walletService;
+    private final com.phelti.phelti.repository.jpa.ConfirmationJpaRepository confirmationRepository;
 
     public ActivityServiceImpl(
             ActivityJpaRepository activityRepository,
             UserJpaRepository userRepository,
             ProposalService proposalService,
             PublicationService publicationService,
-            WalletService walletService) {
+            WalletService walletService, com.phelti.phelti.repository.jpa.ConfirmationJpaRepository confirmationRepository) {
 
         this.activityRepository = activityRepository;
         this.userRepository = userRepository;
         this.proposalService = proposalService;
         this.publicationService = publicationService;
         this.walletService = walletService;
+        this.confirmationRepository = confirmationRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void validateDraft(ActivityRequest request) {
+        validateBasicData(request);
+        var proposal = proposalService.findProposalById(request.proposalId());
+        if (!ProposalStatus.ACCEPTED.name().equals(proposal.getProposalStatus())) {
+            throw new InvalidActivityStateException("Solo se pueden acordar horarios de propuestas aceptadas.");
+        }
+        validateModeData(request, publicationService.findPublicationById(proposal.getPublicationId()).getInteractionMode());
     }
 
     @Override
@@ -61,9 +74,11 @@ public class ActivityServiceImpl implements ActivityService {
         Proposal proposal =
                 proposalService.findProposalById(request.proposalId());
 
+        publicationService.lockPublication(proposal.getPublicationId());
+        proposal = proposalService.findProposalById(request.proposalId());
         if (!ProposalStatus.ACCEPTED.name().equals(proposal.getProposalStatus())) {
             throw new InvalidActivityStateException(
-                    "only accepted proposals can be scheduled"
+                    "Solo se pueden programar propuestas aceptadas."
             );
         }
 
@@ -87,15 +102,19 @@ public class ActivityServiceImpl implements ActivityService {
                 ? publication.getUserId()
                 : proposal.getProposingUserId();
 
+        userRepository.lockParticipants(java.util.List.of(requesterId, participantId));
         UserEntity requester = findUser(requesterId);
         UserEntity participant = findUser(participantId);
+        LocalDateTime start = LocalDateTime.of(request.activityDate(), request.activityTime().withSecond(0).withNano(0));
+        LocalDateTime end = start.plusMinutes(request.durationMinutes());
+        validateSchedule(requester, start, end);
+        validateSchedule(participant, start, end);
 
         BigDecimal agreedAmount = proposal.getProposedAmount() != null
                 ? proposal.getProposedAmount()
                 : publication.getPheltAmount();
 
-        // The participant must already own a wallet, otherwise the transfer
-        // at completion time would fail after both users confirmed.
+        // La transferencia requiere que ambos participantes tengan billetera.
         walletService.findWalletByUserId(participantId);
 
         ActivityEntity activity = new ActivityEntity();
@@ -105,12 +124,12 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setParticipant(participant);
         activity.setInteractionMode(publication.getInteractionMode());
         activity.setActivityDate(request.activityDate());
-        activity.setActivityTime(request.activityTime());
+        activity.setActivityTime(request.activityTime().withSecond(0).withNano(0));
         activity.setDurationMinutes(request.durationMinutes());
-        activity.setLocation(request.location());
-        activity.setVirtualLink(request.virtualLink());
+        activity.setLocation(InteractionMode.PRESENTIAL.name().equals(publication.getInteractionMode()) ? request.location().trim() : null);
+        activity.setVirtualLink(InteractionMode.VIRTUAL.name().equals(publication.getInteractionMode()) ? request.virtualLink().trim() : null);
         activity.setAgreedAmount(agreedAmount);
-        activity.setCheckInCode(UUID.randomUUID().toString());
+        activity.setCheckInCode(String.format(java.util.Locale.ROOT, "%06d", new java.security.SecureRandom().nextInt(1_000_000)));
         activity.setActivityStatus(ActivityStatus.SCHEDULED.name());
 
         ActivityEntity saved = activityRepository.save(activity);
@@ -129,6 +148,15 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     @Override
+    @Transactional
+    public ActivityEntity lockActivity(Integer activityId) {
+        ActivityEntity activity = activityRepository.findForUpdate(activityId).orElseThrow(() -> new ActivityNotFoundException(activityId));
+        org.hibernate.Hibernate.initialize(activity.getRequester());
+        org.hibernate.Hibernate.initialize(activity.getParticipant());
+        return activity;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ActivityEntity> findActivitiesByUserId(Integer userId) {
 
@@ -141,12 +169,12 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional
     public ActivityEntity completeActivity(Integer activityId, String checkInCode) {
 
-        ActivityEntity activity = findActivityById(activityId);
+        ActivityEntity activity = lockActivity(activityId);
 
-        ensureScheduled(activity, "completed");
+        ensureScheduled(activity, "completar");
 
         if (checkInCode == null || !checkInCode.equals(activity.getCheckInCode())) {
-            throw new InvalidCheckInCodeException("check-in code does not match");
+            throw new InvalidCheckInCodeException("El código de confirmación no coincide.");
         }
 
         walletService.transferReservedBalance(
@@ -170,9 +198,10 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional
     public ActivityEntity cancelActivity(Integer activityId) {
 
-        ActivityEntity activity = findActivityById(activityId);
+        ActivityEntity activity = lockActivity(activityId);
 
-        ensureScheduled(activity, "cancelled");
+        ensureScheduled(activity, "cancelar");
+        if (confirmationRepository.countByActivityActivityId(activityId) > 0) throw new InvalidActivityStateException("No puedes cancelar unilateralmente una actividad con una confirmación registrada.");
 
         walletService.releaseReservedBalance(
                 activity.getRequester().getUserId(),
@@ -202,7 +231,7 @@ public class ActivityServiceImpl implements ActivityService {
 
         if (!ActivityStatus.SCHEDULED.name().equals(activity.getActivityStatus())) {
             throw new InvalidActivityStateException(
-                    "only scheduled activities can be " + action
+                    "Solo se puede " + action + " una actividad programada."
             );
         }
     }
@@ -210,38 +239,62 @@ public class ActivityServiceImpl implements ActivityService {
     private void validateBasicData(ActivityRequest request) {
 
         if (request.proposalId() == null) {
-            throw new InvalidActivityDataException("proposalId is required");
+            throw new InvalidActivityDataException("Selecciona una propuesta.");
         }
 
         if (request.activityDate() == null) {
-            throw new InvalidActivityDataException("activityDate is required");
-        }
-
-        if (request.activityDate().isBefore(LocalDate.now())) {
-            throw new InvalidActivityDataException(
-                    "activityDate must not be in the past"
-            );
+            throw new InvalidActivityDataException("Indica la fecha de la actividad.");
         }
 
         if (request.activityTime() == null) {
-            throw new InvalidActivityDataException("activityTime is required");
+            throw new InvalidActivityDataException("Indica la hora de la actividad.");
         }
 
+        if (!LocalDateTime.of(request.activityDate(), request.activityTime().withSecond(0).withNano(0)).isAfter(BusinessRules.now())) {
+            throw new InvalidActivityDataException("La actividad debe programarse para una fecha y hora futuras.");
+        }
         if (request.durationMinutes() == null || request.durationMinutes() <= 0) {
             throw new InvalidActivityDataException(
-                    "durationMinutes must be greater than zero"
+                    "La duración debe ser de al menos un minuto."
             );
         }
+    }
+
+    private void validateSchedule(UserEntity user, LocalDateTime start, LocalDateTime end) {
+        // Sin horarios registrados, no hay restricciones de disponibilidad declaradas.
+        var availability = user.getAvailabilities();
+        if (!availability.isEmpty()) {
+            boolean fits = start.toLocalDate().equals(end.toLocalDate()) && availability.stream().anyMatch(slot ->
+                    start.getDayOfWeek().name().equals(slot.getDayOfWeek()) &&
+                    !start.toLocalTime().isBefore(slot.getStartTime()) && !end.toLocalTime().isAfter(slot.getEndTime()));
+            if (!fits) throw new InvalidActivityDataException("El horario no coincide con la disponibilidad de ambos participantes.");
+        }
+        boolean overlaps = activityRepository.findByParticipantOrRequesterId(user.getUserId()).stream()
+                .filter(a -> ActivityStatus.SCHEDULED.name().equals(a.getActivityStatus()))
+                .anyMatch(a -> {
+                    LocalDateTime otherStart = LocalDateTime.of(a.getActivityDate(), a.getActivityTime());
+                    LocalDateTime otherEnd = otherStart.plusMinutes(a.getDurationMinutes());
+                    return start.isBefore(otherEnd) && otherStart.isBefore(end);
+                });
+        if (overlaps) throw new InvalidActivityDataException("Uno de los participantes ya tiene otra actividad en ese horario.");
     }
 
     private void validateModeData(ActivityRequest request, String interactionMode) {
 
         if (InteractionMode.PRESENTIAL.name().equals(interactionMode)) {
-            requireText(request.location(), "location", MAX_LOCATION_LENGTH);
+            requireText(request.location(), "El lugar del encuentro", MAX_LOCATION_LENGTH);
         }
 
         if (InteractionMode.VIRTUAL.name().equals(interactionMode)) {
-            requireText(request.virtualLink(), "virtualLink", MAX_VIRTUAL_LINK_LENGTH);
+            requireText(request.virtualLink(), "El enlace de reunión", MAX_VIRTUAL_LINK_LENGTH);
+            try {
+                java.net.URI link = java.net.URI.create(request.virtualLink().trim());
+                if (!"https".equalsIgnoreCase(link.getScheme()) || link.getHost() == null || link.getUserInfo() != null) {
+                    throw new IllegalArgumentException();
+                }
+            } catch (IllegalArgumentException exception) {
+                throw new InvalidActivityDataException("Introduce un enlace de reunión HTTPS válido.");
+            }
         }
     }
 
@@ -249,13 +302,13 @@ public class ActivityServiceImpl implements ActivityService {
 
         if (value == null || value.isBlank()) {
             throw new InvalidActivityDataException(
-                    field + " is required for this interaction mode"
+                    field + " es obligatorio para esta modalidad."
             );
         }
 
         if (value.length() > maxLength) {
             throw new InvalidActivityDataException(
-                    field + " must be at most " + maxLength + " characters"
+                    field + " admite hasta " + maxLength + " caracteres."
             );
         }
     }

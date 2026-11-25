@@ -25,27 +25,35 @@ public class UserServiceImpl implements UserService {
 
     private final UserJpaRepository userRepository;
 
-    public UserServiceImpl(UserJpaRepository userRepository) {
+    private final WalletService walletService;
+
+    public UserServiceImpl(UserJpaRepository userRepository, WalletService walletService) {
         this.userRepository = userRepository;
+        this.walletService = walletService;
     }
 
     @Override
     @Transactional
     public UserEntity createUser(String name, String email, String description) {
 
+        name = name == null ? null : name.trim();
+        email = email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
         validateUser(name, email);
+        validateDescription(description);
 
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new EmailAlreadyRegisteredException(email);
         }
 
         UserEntity user = new UserEntity();
-        user.setName(name);
+        user.setName(name.trim());
         user.setEmail(email);
-        user.setDescription(description);
+        user.setDescription(normalizeBlank(description));
         user.setAverageRating(BigDecimal.ZERO);
 
-        return userRepository.save(user);
+        UserEntity saved = userRepository.save(user);
+        walletService.createWallet(saved.getUserId());
+        return saved;
     }
 
     @Override
@@ -76,9 +84,10 @@ public class UserServiceImpl implements UserService {
 
         validateName(name);
         validateLocation(location);
+        validateDescription(description);
 
-        user.setName(name);
-        user.setDescription(description);
+        user.setName(name.trim());
+        user.setDescription(normalizeBlank(description));
         user.setLocation(normalizeBlank(location));
         user.setPreferredInteractionMode(
                 parseInteractionMode(preferredInteractionMode)
@@ -121,7 +130,7 @@ public class UserServiceImpl implements UserService {
             return InteractionMode.valueOf(normalized).name();
         } catch (IllegalArgumentException exception) {
             throw new InvalidUserDataException(
-                    "interactionMode must be VIRTUAL or PRESENTIAL"
+                    "Selecciona una modalidad válida."
             );
         }
     }
@@ -136,7 +145,7 @@ public class UserServiceImpl implements UserService {
             return DayOfWeek.valueOf(value.trim().toUpperCase()).name();
         } catch (IllegalArgumentException exception) {
             throw new InvalidUserDataException(
-                    "dayOfWeek must be a day such as MONDAY or FRIDAY"
+                    "Selecciona un día de la semana válido."
             );
         }
     }
@@ -146,11 +155,15 @@ public class UserServiceImpl implements UserService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    private void validateDescription(String value) {
+        if (value != null && value.length() > 1500) throw new InvalidUserDataException("La descripción admite hasta 1500 caracteres.");
+    }
+
     private void validateLocation(String location) {
 
         if (location != null && location.length() > MAX_LOCATION_LENGTH) {
             throw new InvalidUserDataException(
-                    "location must be at most " + MAX_LOCATION_LENGTH + " characters"
+                    "La ubicación admite hasta " + MAX_LOCATION_LENGTH + " caracteres."
             );
         }
     }
@@ -158,12 +171,12 @@ public class UserServiceImpl implements UserService {
     private void validateName(String name) {
 
         if (name == null || name.isBlank()) {
-            throw new InvalidUserDataException("name must not be empty");
+            throw new InvalidUserDataException("El nombre es obligatorio.");
         }
 
         if (name.length() > MAX_NAME_LENGTH) {
             throw new InvalidUserDataException(
-                    "name must be at most " + MAX_NAME_LENGTH + " characters"
+                    "El nombre admite hasta " + MAX_NAME_LENGTH + " caracteres."
             );
         }
     }
@@ -173,15 +186,14 @@ public class UserServiceImpl implements UserService {
         validateName(name);
 
         if (email == null || email.isBlank()) {
-            throw new InvalidUserDataException("email must not be empty");
+            throw new InvalidUserDataException("El correo electrónico es obligatorio.");
         }
 
         if (email.length() > MAX_EMAIL_LENGTH
                 || !EMAIL_PATTERN.matcher(email).matches()) {
 
             throw new InvalidUserDataException(
-                    "email must be a valid address of at most "
-                            + MAX_EMAIL_LENGTH + " characters"
+                    "Introduce un correo válido de hasta " + MAX_EMAIL_LENGTH + " caracteres."
             );
         }
     }

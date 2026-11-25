@@ -33,9 +33,12 @@ import java.util.List;
 )
 public class WalletController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final WalletService walletService;
 
-    public WalletController(WalletService walletService) {
+    public WalletController(com.phelti.phelti.config.DemoAccess access, WalletService walletService) {
+        this.access = access;
         this.walletService = walletService;
     }
 
@@ -52,6 +55,7 @@ public class WalletController {
     public ResponseEntity<WalletResponse> createWallet(
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId) {
+        access.own(userId);
 
         WalletEntity wallet = walletService.createWallet(userId);
 
@@ -72,6 +76,7 @@ public class WalletController {
     public ResponseEntity<WalletResponse> findWalletByUserId(
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId) {
+        access.own(userId);
 
         WalletEntity wallet = walletService.findWalletByUserId(userId);
 
@@ -92,6 +97,7 @@ public class WalletController {
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId,
             @Valid @RequestBody DepositRequest request) {
+        access.own(userId);
 
         WalletEntity wallet = walletService.deposit(userId, request.amount());
 
@@ -110,6 +116,7 @@ public class WalletController {
     public ResponseEntity<List<TransactionResponse>> findTransactions(
             @Parameter(description = "User identifier", example = "1")
             @PathVariable Integer userId) {
+        access.own(userId);
 
         List<TransactionResponse> transactions = walletService.findTransactionsByUserId(userId)
                 .stream()

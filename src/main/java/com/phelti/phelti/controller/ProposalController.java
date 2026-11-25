@@ -28,9 +28,12 @@ import java.util.List;
 @Tag(name = "Proposals", description = "Operations for proposals made on publications")
 public class ProposalController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final ProposalService proposalService;
 
-    public ProposalController(ProposalService proposalService) {
+    public ProposalController(com.phelti.phelti.config.DemoAccess access, ProposalService proposalService) {
+        this.access = access;
         this.proposalService = proposalService;
     }
 
@@ -47,6 +50,7 @@ public class ProposalController {
     @PostMapping
     public ResponseEntity<ProposalResponse> createProposal(
             @Valid @RequestBody ProposalRequest request) {
+        access.own(request.proposingUserId());
         Proposal created = proposalService.createProposal(toModel(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
@@ -57,8 +61,9 @@ public class ProposalController {
     })
     @GetMapping
     public ResponseEntity<List<ProposalResponse>> findAllProposals() {
+        Integer actor = access.actor();
         List<ProposalResponse> proposals = proposalService.findAllProposals()
-                .stream()
+                .stream().filter(p -> access.belongsToProposal(actor, p))
                 .map(this::toResponse)
                 .toList();
         return ResponseEntity.ok(proposals);
@@ -73,6 +78,7 @@ public class ProposalController {
     public ResponseEntity<ProposalResponse> findProposalById(
             @Parameter(description = "Proposal identifier", example = "1")
             @PathVariable("id") Integer proposalId) {
+        access.proposalParticipant(proposalId);
         return ResponseEntity.ok(toResponse(proposalService.findProposalById(proposalId)));
     }
 
@@ -89,6 +95,7 @@ public class ProposalController {
     public ResponseEntity<ProposalResponse> acceptProposal(
             @Parameter(description = "Proposal identifier", example = "1")
             @PathVariable("id") Integer proposalId) {
+        access.proposalOwner(proposalId);
         return ResponseEntity.ok(toResponse(proposalService.acceptProposal(proposalId)));
     }
 
@@ -102,6 +109,7 @@ public class ProposalController {
     public ResponseEntity<ProposalResponse> rejectProposal(
             @Parameter(description = "Proposal identifier", example = "1")
             @PathVariable("id") Integer proposalId) {
+        access.proposalOwner(proposalId);
         return ResponseEntity.ok(toResponse(proposalService.rejectProposal(proposalId)));
     }
 
@@ -118,6 +126,7 @@ public class ProposalController {
     public ResponseEntity<Void> deleteProposal(
             @Parameter(description = "Proposal identifier", example = "1")
             @PathVariable("id") Integer proposalId) {
+        access.proposer(proposalId);
         proposalService.deleteProposal(proposalId);
         return ResponseEntity.noContent().build();
     }

@@ -31,9 +31,12 @@ import java.util.List;
 @Tag(name = "Publications", description = "Operations for time-exchange publications")
 public class PublicationController {
 
+    private final com.phelti.phelti.config.DemoAccess access;
+
     private final PublicationService publicationService;
 
-    public PublicationController(PublicationService publicationService) {
+    public PublicationController(com.phelti.phelti.config.DemoAccess access, PublicationService publicationService) {
+        this.access = access;
         this.publicationService = publicationService;
     }
 
@@ -49,6 +52,7 @@ public class PublicationController {
     @PostMapping
     public ResponseEntity<PublicationResponse> createPublication(
             @Valid @RequestBody PublicationRequest request) {
+        access.own(request.userId());
         Publication created = publicationService.createPublication(toModel(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
@@ -133,6 +137,7 @@ public class PublicationController {
             @Parameter(description = "Publication identifier", example = "1")
             @PathVariable("id") Integer publicationId,
             @Valid @RequestBody PublicationRequest request) {
+        access.publicationOwner(publicationId); access.own(request.userId());
         Publication updated = publicationService.updatePublication(publicationId, toModel(request));
         return ResponseEntity.ok(toResponse(updated));
     }
@@ -150,6 +155,7 @@ public class PublicationController {
     public ResponseEntity<Void> deletePublication(
             @Parameter(description = "Publication identifier", example = "1")
             @PathVariable("id") Integer publicationId) {
+        access.publicationOwner(publicationId);
         publicationService.deletePublication(publicationId);
         return ResponseEntity.noContent().build();
     }
@@ -166,7 +172,6 @@ public class PublicationController {
         publication.setNegotiable(request.negotiable());
         publication.setPublicationStatus(request.publicationStatus());
         publication.setDurationMinutes(request.durationMinutes());
-        publication.setScheduledAt(request.scheduledAt());
         return publication;
     }
 
@@ -182,8 +187,7 @@ public class PublicationController {
                 publication.getPheltAmount(),
                 publication.isNegotiable(),
                 publication.getPublicationStatus(),
-                publication.getDurationMinutes(),
-                publication.getScheduledAt()
+                publication.getDurationMinutes()
         );
     }
 }

@@ -7,7 +7,5 @@ import java.util.List;
 
 public interface CategoryJpaRepository extends JpaRepository<CategoryEntity, Integer> {
 
-    boolean existsByNameIgnoreCase(String name);
-
     List<CategoryEntity> findAllByOrderByNameAsc();
 }

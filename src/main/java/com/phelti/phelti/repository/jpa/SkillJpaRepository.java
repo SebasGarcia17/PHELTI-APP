@@ -7,7 +7,5 @@ import java.util.List;
 
 public interface SkillJpaRepository extends JpaRepository<SkillEntity, Integer> {
 
-    boolean existsByNameIgnoreCase(String name);
-
     List<SkillEntity> findAllByOrderByNameAsc();
 }

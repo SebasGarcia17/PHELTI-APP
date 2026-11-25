@@ -194,6 +194,7 @@ class AvailabilityServiceImplTest {
     void deleteAvailabilityShouldDeleteTheSlotWhenItExists() {
 
         AvailabilityEntity slot = slot("MONDAY", 9, 12);
+        slot.setUser(createUser(1));
 
         when(availabilityRepository.findById(3))
                 .thenReturn(Optional.of(slot));

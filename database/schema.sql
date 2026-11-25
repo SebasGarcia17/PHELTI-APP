@@ -25,7 +25,6 @@ CREATE TABLE publicacion (
     negociable BOOLEAN NOT NULL DEFAULT FALSE,
     estado VARCHAR(30) NOT NULL DEFAULT 'PUBLISHED',
     duracion INTEGER,
-    fecha_hora TIMESTAMP,
 
     CONSTRAINT ck_publicacion_duracion
         CHECK (duracion IS NULL OR duracion > 0),
@@ -124,7 +123,7 @@ CREATE TABLE usuario_habilidad (
     CONSTRAINT fk_usuario_habilidad_habilidad
         FOREIGN KEY (id_habilidad)
         REFERENCES habilidad(id_habilidad)
-        ON DELETE CASCADE
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE interes (
@@ -146,7 +145,7 @@ CREATE TABLE usuario_interes (
     CONSTRAINT fk_usuario_interes_interes
         FOREIGN KEY (id_interes)
         REFERENCES interes(id_interes)
-        ON DELETE CASCADE
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE disponibilidad (
@@ -239,11 +238,30 @@ CREATE TABLE calificacion (
         REFERENCES usuario(id_usuario)
 );
 
-INSERT INTO categoria (nombre) VALUES
-    ('Educacion'),
-    ('Tecnologia'),
-    ('Hogar'),
-    ('Arte y musica'),
-    ('Deportes'),
-    ('Idiomas')
+INSERT INTO categoria (nombre)
+SELECT v.nombre FROM (VALUES ('Tecnología'), ('Educación'), ('Finanzas'), ('Idiomas'), ('Arte y diseño'), ('Deportes'), ('Gastronomía'), ('Música'), ('Hogar'), ('Desarrollo personal')) AS v(nombre)
+WHERE NOT EXISTS (SELECT 1 FROM categoria t WHERE lower(t.nombre) = lower(v.nombre))
 ON CONFLICT (nombre) DO NOTHING;
+INSERT INTO habilidad (nombre)
+SELECT v.nombre FROM (VALUES ('Programación en Java'), ('Diseño gráfico'), ('Hojas de cálculo'), ('Inglés'), ('Matemáticas'), ('Fotografía'), ('Cocina'), ('Guitarra'), ('Entrenamiento deportivo'), ('Edición de video')) AS v(nombre)
+WHERE NOT EXISTS (SELECT 1 FROM habilidad t WHERE lower(t.nombre) = lower(v.nombre))
+ON CONFLICT (nombre) DO NOTHING;
+INSERT INTO interes (nombre)
+SELECT v.nombre FROM (VALUES ('Programación'), ('Diseño'), ('Finanzas'), ('Idiomas'), ('Ciencia'), ('Fotografía'), ('Gastronomía'), ('Música'), ('Deportes'), ('Desarrollo personal')) AS v(nombre)
+WHERE NOT EXISTS (SELECT 1 FROM interes t WHERE lower(t.nombre) = lower(v.nombre))
+ON CONFLICT (nombre) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS programacion_propuesta (
+    id_programacion INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_propuesta INTEGER NOT NULL REFERENCES propuesta(id_propuesta),
+    id_solicitante INTEGER NOT NULL REFERENCES usuario(id_usuario),
+    fecha DATE NOT NULL,
+    hora TIME NOT NULL,
+    duracion INTEGER NOT NULL CHECK (duracion > 0),
+    lugar VARCHAR(200),
+    enlace_virtual VARCHAR(300),
+    estado VARCHAR(20) NOT NULL CHECK (estado IN ('PENDING','ACCEPTED','REJECTED','WITHDRAWN')),
+    fecha_creacion TIMESTAMP NOT NULL,
+    fecha_decision TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_programacion_pendiente ON programacion_propuesta(id_propuesta) WHERE estado = 'PENDING';

@@ -84,9 +84,9 @@ public class JdbcProposalRepository implements ProposalRepository {
                     id_usuario_proponente,
                     mensaje,
                     monto_tiempo,
-                    estado
+                    estado, fecha_creacion
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING id_propuesta, fecha_creacion
                 """;
 
@@ -96,12 +96,13 @@ public class JdbcProposalRepository implements ProposalRepository {
                 proposal.getProposingUserId(),
                 proposal.getMessage(),
                 proposal.getProposedAmount(),
-                proposal.getProposalStatus()
+                proposal.getProposalStatus(),
+                java.sql.Timestamp.valueOf(com.phelti.phelti.model.BusinessRules.now())
         );
 
         Map<String, Object> row = generated.get(0);
         proposal.setProposalId((Integer) row.get("id_propuesta"));
-        proposal.setCreatedAt(((Timestamp) row.get("fecha_creacion")).toInstant());
+        proposal.setCreatedAt(((Timestamp) row.get("fecha_creacion")).toLocalDateTime().atZone(com.phelti.phelti.model.BusinessRules.ZONE).toInstant());
 
         return proposal;
     }
@@ -136,7 +137,7 @@ public class JdbcProposalRepository implements ProposalRepository {
         proposal.setMessage(resultSet.getString("mensaje"));
         proposal.setProposedAmount(resultSet.getBigDecimal("monto_tiempo"));
         proposal.setProposalStatus(resultSet.getString("estado"));
-        proposal.setCreatedAt(resultSet.getTimestamp("fecha_creacion").toInstant());
+        proposal.setCreatedAt(resultSet.getObject("fecha_creacion", java.time.LocalDateTime.class).atZone(com.phelti.phelti.model.BusinessRules.ZONE).toInstant());
 
         return proposal;
     }
